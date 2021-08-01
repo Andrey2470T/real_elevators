@@ -1,5 +1,7 @@
 elevators = {}
 
+dofile(minetest.get_modpath("real_elevators") .. "/registration.lua")
+
 --[[elevators.get_formspec = function(floors_num)
     local formspec = "formspec_version[4]"
     local but_size_x = 3
@@ -56,159 +58,11 @@ minetest.register_node("real_elevators:elevator_cabin", {
 	sounds = default.node_sound_metal_defaults()
 })
 
-minetest.register_node("real_elevators:elevator_shaft_leftside", {
-	description = "Elevator Shaft (Left) Side Block",
-	visual_scale = 1.0,
-	drawtype = "nodebox",
-	tiles = {
-		"real_elevators_shaft_side_block2.png",
-		"real_elevators_shaft_side_block2.png",
-		"real_elevators_shaft_back_block.png",
-		"real_elevators_shaft_side_block2.png",
-		"real_elevators_shaft_side_block2.png",
-		"real_elevators_shaft_side_block2.png"
-	},
-	paramtype = "light",
-	paramtype2 = "facedir",
-	sunlight_propagates = true,
-	node_box = {
-		type = "fixed",
-		fixed = {
-			{-0.5, -0.5, -0.4, 0.5, 0.5, 0.5},
-			{-0.5, -0.5, -0.5, 0.0, 0.5, -0.4}
-		}
-	},
-	selection_box = {
-		type = "fixed",
-		fixed = {
-			{-0.5, -0.5, -0.4, 0.5, 0.5, 0.5},
-			{-0.5, -0.5, -0.5, 0.0, 0.5, -0.4}
-		}
-	},
-	groups = {cracky=1.5},
-	sounds = default.node_sound_stone_defaults()
-})
-
-minetest.register_node("real_elevators:elevator_shaft_rightside", {
-	description = "Elevator Shaft (Right) Side Block",
-	visual_scale = 1.0,
-	drawtype = "nodebox",
-	tiles = {
-		"real_elevators_shaft_side_block2.png",
-		"real_elevators_shaft_side_block2.png",
-		"real_elevators_shaft_side_block2.png",
-		"real_elevators_shaft_back_block.png",
-		"real_elevators_shaft_side_block2.png",
-		"real_elevators_shaft_side_block2.png"
-	},
-	paramtype = "light",
-	paramtype2 = "facedir",
-	sunlight_propagates = true,
-	node_box = {
-		type = "fixed",
-		fixed = {
-			{-0.5, -0.5, -0.4, 0.5, 0.5, 0.5},
-			{0.0, -0.5, -0.5, 0.5, 0.5, -0.4}
-		}
-	},
-	selection_box = {
-		type = "fixed",
-		fixed = {
-			{-0.5, -0.5, -0.4, 0.5, 0.5, 0.5},
-			{0.0, -0.5, -0.5, 0.5, 0.5, -0.4}
-		}
-	},
-	groups = {cracky=1.5},
-	sounds = default.node_sound_stone_defaults()
-})
-
-minetest.register_node("real_elevators:elevator_shaft_back", {
-	description = "Elevator Shaft Back Block",
-	visual_scale = 1.0,
-	tiles = {
-		"real_elevators_shaft_back_block2.png",
-		"real_elevators_shaft_back_block2.png",
-		"real_elevators_shaft_back_block2.png",
-		"real_elevators_shaft_back_block2.png",
-		"real_elevators_shaft_back_block2.png",
-		"real_elevators_shaft_back_block.png"
-	},
-	paramtype = "light",
-	paramtype2 = "facedir",
-	sunlight_propagates = true,
-	collision_box = {
-		type = "fixed",
-		fixed = {-0.5, -0.5, -0.5, 0.5, 0.5, 0.5}
-	},
-	selection_box = {
-		type = "fixed",
-		fixed = {-0.5, -0.5, -0.5, 0.5, 0.5, 0.5}
-	},
-	groups = {cracky=1.5},
-	sounds = default.node_sound_stone_defaults()
-})
-
-minetest.register_node("real_elevators:elevator_outer_wall_leftslot", {
-	description = "Elevator Outer Wall With Left Slot",
-	visual_scale = 1.0,
-	drawtype = "nodebox",
-	tiles = {
-		"real_elevators_shaft_side_block2.png",
-	},
-	paramtype = "light",
-	paramtype2 = "facedir",
-	sunlight_propagates = true,
-	node_box = {
-		type = "fixed",
-		fixed = {
-			{-0.5, -0.5, 0.4, 0.0, 0.5, 0.5},
-			{-0.5, -0.5, 0.0, 0.5, 0.5, 0.4}
-		}
-	},
-	selection_box = {
-		type = "fixed",
-		fixed = {
-			{-0.5, -0.5, 0.4, 0.0, 0.5, 0.5},
-			{-0.5, -0.5, 0.0, 0.5, 0.5, 0.4}
-		}
-	},
-	groups = {cracky=1.5},
-	sounds = default.node_sound_stone_defaults()
-})
-
-minetest.register_node("real_elevators:elevator_outer_wall_rightslot", {
-	description = "Elevator Outer Wall With Right Slot",
-	visual_scale = 1.0,
-	drawtype = "nodebox",
-	tiles = {
-		"real_elevators_shaft_side_block2.png",
-	},
-	paramtype = "light",
-	paramtype2 = "facedir",
-	sunlight_propagates = true,
-	node_box = {
-		type = "fixed",
-		fixed = {
-			{0.0, -0.5, 0.4, 0.5, 0.5, 0.5},
-			{-0.5, -0.5, 0.0, 0.5, 0.5, 0.4}
-		}
-	},
-	selection_box = {
-		type = "fixed",
-		fixed = {
-			{0.0, -0.5, 0.4, 0.5, 0.5, 0.5},
-			{-0.5, -0.5, 0.0, 0.5, 0.5, 0.4}
-		}
-	},
-	groups = {cracky=1.5},
-	sounds = default.node_sound_stone_defaults()
-})
-
-minetest.register_node("real_elevators:elevator_doors", {
-	description = "Elevator doors",
+minetest.register_node("real_elevators:elevator_doors_closed", {
+	description = "Elevator doors (closed)",
 	visual_scale = 0.5,
 	drawtype = "mesh",
-	mesh = "real_elevators_elevator_doors.b3d",
+	mesh = "real_elevators_elevator_doors_closed.b3d",
 	tiles = {"real_elevators_outer_doors.png"},
 	paramtype = "light",
 	paramtype2 = "facedir",
@@ -229,89 +83,72 @@ minetest.register_node("real_elevators:elevator_doors", {
 	sounds = default.node_sound_metal_defaults()
 })
 
-minetest.register_node("real_elevators:elevator_outer_wall", {
-	description = "Elevator Outer Wall",
-	visual_scale = 1.0,
-	drawtype = "nodebox",
+minetest.register_node("real_elevators:elevator_doors_opening", {
+	description = "Elevator doors (opening)",
+	visual_scale = 0.5,
+	drawtype = "mesh",
+	mesh = "real_elevators_elevator_doors_opening.b3d",
 	tiles = {
-		"real_elevators_shaft_side_block2.png",
-	},
-	paramtype = "light",
-	paramtype2 = "facedir",
-	sunlight_propagates = true,
-	node_box = {
-		type = "fixed",
-		fixed = {
-			-0.5, -0.5, 0.0, 0.5, 0.5, 0.5
-		}
-	},
-	selection_box = {
-		type = "fixed",
-		fixed = {
-			-0.5, -0.5, 0.0, 0.5, 0.5, 0.5
-		}
-	},
-	groups = {cracky=1.5},
-	sounds = default.node_sound_stone_defaults()
-})
-
-minetest.register_node("real_elevators:elevator_shaft_corner", {
-	description = "Elevator Shaft Corner Block",
-	visual_scale = 1.0,
-	tiles = {
-		"real_elevators_shaft_back_block2.png",
-		"real_elevators_shaft_back_block2.png",
-		"real_elevators_shaft_back_block2.png",
-		"real_elevators_shaft_back_block2.png",
-		"real_elevators_shaft_back_block2.png",
-		"real_elevators_shaft_back_block2.png"
+		{
+			name = "real_elevators_outer_doors_opening_anim.png",
+			animation = {
+				type = "vertical_frames",
+				aspect_w = 320,
+				aspect_h = 32,
+				length = 1
+			}
+        }
 	},
 	paramtype = "light",
 	paramtype2 = "facedir",
 	sunlight_propagates = true,
 	collision_box = {
 		type = "fixed",
-		fixed = {-0.5, -0.5, -0.5, 0.5, 0.5, 0.5}
+		fixed = {
+			-0.5, -0.5, 0.4, 0.5, 1.5, 0.5
+		}
 	},
 	selection_box = {
 		type = "fixed",
-		fixed = {-0.5, -0.5, -0.5, 0.5, 0.5, 0.5}
+		fixed = {
+			-0.5, -0.5, 0.4, 0.5, 1.5, 0.5
+		}
 	},
-	groups = {cracky=1.5},
-	sounds = default.node_sound_stone_defaults()
+	groups = {cracky=1.5, not_in_creative_inventory=1},
+	sounds = default.node_sound_metal_defaults(),
+	on_construct = function(pos)
+		local timer = minetest.get_node_timer(pos)
+		timer:start(0.9)
+	end,
+	on_timer = function(pos, elapsed)
+		minetest.set_node(pos, {name = "real_elevators:elevator_doors_opened", param2 = minetest.get_node(pos).param2})
+	end
 })
 
-minetest.register_node("real_elevators:elevator_outer_wall_with_trigger_off", {
-	description = "Elevator Outer Wall With Trigger (off)",
-	visual_scale = 1.0,
-	drawtype = "nodebox",
-	tiles = {
-		"real_elevators_outer_wall_with_button_top.png",
-		"real_elevators_outer_wall_with_button_bottom.png",
-		"real_elevators_outer_wall_with_button_right.png",
-		"real_elevators_outer_wall_with_button_left.png",
-		"real_elevators_shaft_back_block2.png",
-		"real_elevators_outer_wall_with_button_front.png",
-	},
+minetest.register_node("real_elevators:elevator_doors_opened", {
+	description = "Elevator doors (opened)",
+	visual_scale = 0.5,
+	drawtype = "mesh",
+	mesh = "real_elevators_elevator_doors_opened.b3d",
+	tiles = {"real_elevators_outer_doors.png"},
 	paramtype = "light",
 	paramtype2 = "facedir",
 	sunlight_propagates = true,
-	node_box = {
+	collision_box = {
 		type = "fixed",
 		fixed = {
-			{-0.5, -0.5, 0.0, 0.5, 0.5, 0.4},
-			{-0.5, -0.5, 0.4, 0.0, 0.5, 0.5},
-			{-0.185, -0.25, -0.05, 0.185, 0.25, 0.0}
+			{-1.0, -0.5, 0.4, -0.5, 1.5, 0.5},
+			{0.5, -0.5, 0.4, 1.0, 1.5, 0.5}
 		}
 	},
 	selection_box = {
 		type = "fixed",
 		fixed = {
-			{-0.5, -0.5, 0.0, 0.5, 0.5, 0.5},
-			{-0.5, -0.5, 0.4, 0.0, 0.5, 0.5},
-			{-0.185, -0.25, -0.05, 0.185, 0.25, 0.0}
+			{-1.0, -0.5, 0.4, -0.5, 1.5, 0.5},
+			{0.5, -0.5, 0.4, 1.0, 1.5, 0.5}
 		}
 	},
-	groups = {cracky=1.5},
-	sounds = default.node_sound_stone_defaults()
+	groups = {cracky=1.5, not_in_creative_inventory=1},
+	sounds = default.node_sound_metal_defaults()
 })
+
