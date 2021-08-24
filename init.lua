@@ -1,5 +1,7 @@
 elevators = {}
 
+elevators.mod_storage = minetest.get_mod_storage()
+
 local modpath = minetest.get_modpath("real_elevators")
 dofile(modpath .. "/api.lua")
 dofile(modpath .. "/registration.lua")
