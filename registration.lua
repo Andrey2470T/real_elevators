@@ -103,6 +103,7 @@ local elevator_parts_defs = {
 			{-0.185, -0.25, -0.05, 0.185, 0.25, 0.0}
 		},
 		light_source = 3,
+		drop = "real_elevators:elevator_outer_wall_with_trigger_off",
 		groups = {not_in_creative_inventory=1, trigger=1, state=1},
 		sounds = default.node_sound_stone_defaults()
 	},
@@ -293,7 +294,7 @@ minetest.register_node("real_elevators:elevator_cabin", {
 		end
 
 		if fields.set_floor then
-			if #fields.floor_number == 0 then
+			if fields.floor_number == "" then
 				minetest.chat_send_player(sender:get_player_name(), "The floor number must be set!")
 				return
 			end
@@ -301,7 +302,11 @@ minetest.register_node("real_elevators:elevator_cabin", {
 			local floor_pos = minetest.string_to_pos(fields.floor_pos)
 
 			if not floor_pos then
-				minetest.chat_send_player(sender:get_player_name(), "The floor position must be set!")
+				if elevators.current_marked_pos then
+					floor_pos = elevators.current_marked_pos
+				else
+					minetest.chat_send_player(sender:get_player_name(), "The floor position must be set!")
+				end
 				return
 			end
 
@@ -337,6 +342,17 @@ minetest.register_node("real_elevators:elevator_cabin", {
 			local meta = minetest.get_meta(pos)
 			meta:set_string("formspec", elevators.get_add_floor_formspec())
 		end
+
+		if fields.floor_add and fields.floor_number ~= "" then
+			local meta = minetest.get_meta(pos)
+			meta:set_string("formspec", elevators.get_add_floor_formspec(tonumber(fields.floor_number)+1, fields.floor_description, fields.floor_pos))
+		end
+
+		if fields.floor_reduce and fields.floor_number ~= "" then
+			local meta = minetest.get_meta(pos)
+			meta:set_string("formspec", elevators.get_add_floor_formspec(tonumber(fields.floor_number)-1, fields.floor_description, fields.floor_pos))
+		end
+
 		local net_name = minetest.get_meta(pos):get_string("elevator_net_name")
 
 		if net_name ~= "" and elevators.elevators_nets[net_name].cabin.state == "pending" then

@@ -47,23 +47,42 @@ elevators.set_doors = function(pos, z_shift, x_shift)
 	local node = minetest.get_node(pos)
 	local dir = minetest.facedir_to_dir(node.param2)
 
-	local y_angle = vector.dir_to_rotation(dir).y
-
 	-- Set left door entity
 	local left_door_movedir = vector.rotate_around_axis(dir, {x=0, y=1, z=0}, math.pi/2)
 	local left_door_shift = vector.add(vector.multiply(left_door_movedir, x_shift), vector.multiply(dir, z_shift))
 	local left_door_pos = vector.add(pos, left_door_shift)
 	local left_door = minetest.add_entity(left_door_pos, "real_elevators:elevator_door_moving")
-	left_door:set_rotation({x=0, y=y_angle, z=0})
+	elevators.rotate_door(left_door, vector.multiply(dir, -1))
 
 	-- Set right door entity
 	local right_door_movedir = vector.rotate_around_axis(dir, {x=0, y=1, z=0}, -math.pi/2)
 	local right_door_shift = vector.add(vector.multiply(right_door_movedir, x_shift), vector.multiply(dir, z_shift))
 	local right_door_pos = vector.add(pos, right_door_shift)
 	local right_door = minetest.add_entity(right_door_pos, "real_elevators:elevator_door_moving")
-	right_door:set_rotation({x=0, y=y_angle+math.pi, z=0})
+	elevators.rotate_door(right_door, vector.multiply(dir, -1))
 
 	return left_door, right_door
+end
+
+
+-- Rotates door object around Y axis by angle enclosed between '{x=0, y=0, z=1}' and 'dir' vectors. Those vectors must be mutually-perpendicular! Except mesh, it rotates also its collision & selection boxes.
+elevators.rotate_door = function(door, dir)
+	local yaw = vector.dir_to_rotation(dir).y
+	door:set_rotation({x=0, y=yaw, z=0})
+
+	local collbox = door:get_properties().collisionbox
+	local box = {
+		[1] = {x=collbox[1], y=collbox[2], z=collbox[3]},
+		[2] = {x=collbox[4], y=collbox[5], z=collbox[6]}
+	}
+
+	box[1] = vector.rotate_around_axis(box[1], {x=0, y=1, z=0}, yaw)
+	box[2] = vector.rotate_around_axis(box[2], {x=0, y=1, z=0}, yaw)
+
+	door:set_properties({
+		collisionbox = {box[1].x, box[1].y, box[1].z, box[2].x, box[2].y, box[2].z},
+		selectionbox = {box[1].x, box[1].y, box[1].z, box[2].x, box[2].y, box[2].z}
+	})
 end
 
 
@@ -107,7 +126,7 @@ elevators.move_doors = function(net_name, action)
 	right_door_entity.vel = vector.multiply(right_dir, 0.25)
 	net.cabin.inner_doors.right:set_velocity(right_door_entity.vel)
 
-	if is_doors then
+	if is_doors == 1 then
 		minetest.remove_node(doors_pos)
 		local outer_left_door, outer_right_door = elevators.set_doors(doors_pos, 0.5, 0.25)
 		net.outer_doors = {left = outer_left_door, right = outer_right_door}
@@ -190,7 +209,8 @@ end
 
 -- Converts the elevator cabin from node state to entity doing it 'active' and makes to move smoothly to the destination floor position.
 elevators.activate = function(net_name, target_pos)
-	local net = table.copy(elevators.elevators_nets[net_name])
+	local net = elevators.elevators_nets[net_name]
+	minetest.debug("1: net.cabin.inner_doors.left pos:" .. dump(net.cabin.inner_doors.left:get_pos()))
 
 	if not net then
 		return false
@@ -224,17 +244,19 @@ elevators.activate = function(net_name, target_pos)
 
 	local cabin_obj = minetest.add_entity(pos, "real_elevators:elevator_cabin_activated")
 	cabin_obj:set_rotation({x=0, y=vector.dir_to_rotation(dir).y, z=0})
-	elevators.elevators_nets[net_name] = net
+	--elevators.elevators_nets[net_name] = net
 
 	local self = cabin_obj:get_luaentity()
 	self.elevator_net_name = net_name
 
 	local pos = cabin_obj:get_pos()
 	local left_door, right_door = elevators.set_doors(pos, -0.45, 0.25)
-	left_door:set_attach(cabin_obj, "", vector.subtract(left_door:get_pos(), pos))
-	right_door:set_attach(cabin_obj, "", vector.subtract(right_door:get_pos(), pos))
+	net.cabin.inner_doors.left:set_attach(cabin_obj, "", vector.subtract(net.cabin.inner_doors.left:get_pos(), pos))
+	net.cabin.inner_doors.right:set_attach(cabin_obj, "", vector.subtract(net.cabin.inner_doors.right:get_pos(), pos))
 	net.cabin.inner_doors.left = left_door
 	net.cabin.inner_doors.right = right_door
+	minetest.debug("2: net.cabin.inner_doors.left pos:" .. dump(net.cabin.inner_doors.left:get_pos()))
+
 	net.cabin.position = nil
 	net.cabin.cur_elevator_position_index = nil
 	self.end_pos = target_pos
@@ -250,7 +272,7 @@ end
 
 -- Converts the elevator cabin from entity state to node doing it "opening" (not "idle" !) and makes to open doors
 elevators.deactivate = function(net_name)
-	local net = table.copy(elevators.elevators_nets[net_name])
+	local net = elevators.elevators_nets[net_name]
 
 	if not net then
 		return false
@@ -272,12 +294,13 @@ elevators.deactivate = function(net_name)
 	net.cabin.inner_doors.left = left_door
 	net.cabin.inner_doors.right = right_door
 	table.remove(net.cabin.queue, 1)
-	elevators.elevators_nets[net_name] = net
+	--elevators.elevators_nets[net_name] = net
 	local trigger_pos = vector.add(pos, vector.add(vector.add(vector.multiply(dir, -1), vector.new(0, 1, 0)), vector.rotate_around_axis(dir, vector.new(0, 1, 0), math.pi/2)))
 	local trigger = minetest.get_node(trigger_pos)
 	local is_trigger = minetest.get_item_group(trigger.name, "trigger")
 
 	if is_trigger then
+		minetest.debug("Sets doors node")
 		minetest.set_node(trigger_pos, {name = "real_elevators:" .. elevators.trigger_states.off, param2 = trigger.param2})
 	end
 
@@ -410,12 +433,18 @@ elevators.get_enter_elevator_net_name_formspec = function()
 	return form
 end
 
-elevators.get_add_floor_formspec = function()
+elevators.get_add_floor_formspec = function(number, description, position)
+	number = number or 0
+	description = description or ""
+	position = ""
 	local form = "formspec_version[4]size[10,5]style_type[label;font=normal,bold;font_size=*1.5]label[1.5,0.5;Add new floor for the elevator net:]" ..
-			"style_type[label;font_size=]field[0.5,2;1,1;floor_number;Number:;0]field[2.5,2;3,1;floor_description;Description:;]field[6.5,2;2.5,1;floor_pos;Position:;"
+			"style_type[label;font_size=]field[0.5,2;1,1;floor_number;Number:;" .. tostring(number)
+			.. "]field[2.5,2;3,1;floor_description;Description:;" .. description .. "]field[6.5,2;2.5,1;floor_pos;Position:;"
 
-	if elevators.current_marked_pos then
-		form = form .. "(" .. elevators.current_marked_pos.x .. ", " .. elevators.current_marked_pos.y .. ", " .. elevators.current_marked_pos.z .. ")]"
+	if position ~= "" then
+		form = form .. position .. "]"
+	elseif elevators.current_marked_pos then
+		form = form .. minetest.pos_to_string(elevators.current_marked_pos) .. "]"
 	else
 		form = form .. "]"
 	end
@@ -441,15 +470,20 @@ elevators.get_floor_list_formspec = function(elevator_net_name)
 		return
 	end
 
+	minetest.debug("elevators.elevators_nets[elevator_net_name].floors:" .. dump(elevators.elevators_nets[elevator_net_name].floors))
 	local y_space = 0.25
+	local button_size = 1
 	for i, floor in ipairs(elevators.elevators_nets[elevator_net_name].floors) do
 		local but_name = "floor_" .. tostring(i)
-		form[#form+1] = "button[0.5," .. tostring(y_space) .. ";1,1;" .. but_name .. ";" .. floor.number .. "]"
+		form[#form+1] = "button[0.5," .. tostring(y_space) .. ";" .. button_size .. "," .. button_size .. ";" .. but_name .. ";" .. floor.number .. "]"
 		form[#form+1] = "tooltip[" .. but_name .. ";Floor #" .. floor.number .. ": \"" .. floor.description .. "\".\nLocates at: " .. minetest.pos_to_string(floor.position) .. "]"
+
+		y_space = y_space + (button_size + y_space)
 	end
 
 	form[#form+1] = "scroll_container_end[]"
 	form[#form+1] = "image_button[1.5,7.5;1,1;real_elevators_floor_plus.png;add_floor;]tooltip[add_floor;Add still floors]"
+	minetest.debug("form:" .. dump(form))
 
 	return table.concat(form, "")
 end
