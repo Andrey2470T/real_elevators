@@ -127,6 +127,22 @@ local elevator_parts_defs = {
 		},
 		groups = {not_in_creative_inventory=1, doors=1, state=1},
 		sounds = default.node_sound_metal_defaults()
+	},
+	["elevator_winch"] = {
+		description = "Elevator Winch",
+		mesh = "real_elevators_winch.b3d",
+		tiles = {"real_elevators_winch.png"},
+		collision_box = {-0.5, -0.5, -0.5, 0.5, 0.5, 0.5},
+		sounds = default.node_sound_metal_defaults()
+	},
+	["elevator_rope"] = {
+		description = "Elevator Rope",
+		drawtype = "plantlike",
+		tiles = {"real_elevators_rope.png"},
+		selection_box = {-0.2, -0.5, -0.2, 0.2, 0.5, 0.2},
+		walkable = false,
+		climbable = true,
+		sounds = default.node_sound_leaves_defaults()
 	}
 }
 
@@ -172,9 +188,11 @@ for name, def in pairs(elevator_parts_defs) do
 	end
 
 	full_def.selection_box =
-			full_def.drawtype == "node_box" and full_def.node_box or
-			(full_def.drawtype == "regular" or full_def.drawtype == "mesh") and full_def.collision_box
+			full_def.drawtype == "node_box" and full_def.node_box or full_def.collision_box
 
+	full_def.walkable = def.walkable
+	full_def.pointable = def.pointable
+	full_def.climbable = def.climbable
 	full_def.light_source = def.light_source
 
 	if def.groups ~= nil then
@@ -237,7 +255,14 @@ minetest.register_node("real_elevators:elevator_cabin", {
 	end,
 	after_place_node = function(pos, placer, itemstack, pointed_thing)
 		local node = minetest.get_node(pos)
-		local success = elevators.check_for_surrounding_shaft_nodes(pos, minetest.facedir_to_dir(node.param2), placer)
+		local playername = placer:get_player_name()
+		local success = elevators.check_for_surrounding_shaft_nodes(pos, minetest.facedir_to_dir(node.param2), playername)
+
+		if not success then
+			minetest.remove_node(pos)
+		end
+
+		success = elevators.check_for_rope(pos, playername)
 
 		if not success then
 			minetest.remove_node(pos)
@@ -444,6 +469,7 @@ minetest.register_entity("real_elevators:elevator_cabin_activated", {
 			self.end_pos = data[1]
 			self.dir = data[2]
 			self.elevator_net_name = data[3]
+			self.is_falling data[4]
 		end
 
 		for name, data in pairs(elevators.elevators_nets) do
@@ -454,17 +480,18 @@ minetest.register_entity("real_elevators:elevator_cabin_activated", {
 		end
 	end,
 	on_step = function(self, dtime, moveresult)
-		if not self.end_pos then
+		if not self.end_pos or self.is_falling then
 			return
 		end
 
 		local pos = self.object:get_pos()
-		local success = elevators.check_for_surrounding_shaft_nodes(pos, self.dir)
+		local is_shaft = elevators.check_for_surrounding_shaft_nodes(pos, self.dir)
 
-		if not success then
+		if not is_shaft then
 			return
 		end
 
+		minetest.remove_node({x=pos.x, y=pos.y+1, z=pos.z})
 		local dist = vector.distance(pos, self.end_pos)
 
 		if dist < 0.05 then
@@ -473,6 +500,17 @@ minetest.register_entity("real_elevators:elevator_cabin_activated", {
 			self.object:set_velocity(vector.new())
 			self.end_pos = nil
 		end
+
+		local top_pos = {x=pos.x, y=pos.y+2, z=pos.z}
+		local top_node = minetest.get_node(top_pos)
+
+		if top_node.name == "real_elevators:elevator_winch" then
+			self.object:set_velocity(vector.new())
+			self.end_pos = nil
+			return
+		end
+
+		minetest.set_node({x=pos.x, y=pos.y+2, z=pos.z}, {name="real_elevators:elevator_rope"})
 	end,
 	on_deactivate = function(self)
 		local net = elevators.elevators_nets[self.elevator_net_name]
@@ -489,7 +527,7 @@ minetest.register_entity("real_elevators:elevator_cabin_activated", {
 		end
 	end,]]
 	get_staticdata = function(self)
-		return minetest.serialize({self.end_pos, self.dir, self.elevator_net_name})
+		return minetest.serialize({self.end_pos, self.dir, self.elevator_net_name, self.is_falling})
 	end
 })
 

@@ -23,6 +23,7 @@ elevators.elevators_nets = minetest.deserialize(elevators.mod_storage:get_string
 --			'elevator_object' is object of elevator cabin (present when its state is 'active')
 --			'inner_doors' is table containing inner left and right door objects.
 --			'queue' is table with positions in 'floors' table, where the elevator was called. It must arrive them in certain order (from position with index 1 to #queue)
+--			'attached_objs' is table containing attached objects (including players) that want to transmit themselves to target floor.
 --		'outer_doors' is table containing outer left and right door objects (present when cabin state is 'opening'/'closing'). As per each elevator net, the only outer doors on some floor can be currently open, it is pointless to save it in 'floors' inside the floor.
 -- the table is indexed with elevator net name strings
 -- net name is saved in 'elevator_net_name' metadata field
@@ -66,6 +67,9 @@ end
 
 
 -- Rotates door object around Y axis by angle enclosed between '{x=0, y=0, z=1}' and 'dir' vectors. Those vectors must be mutually-perpendicular! Except mesh, it rotates also its collision & selection boxes.
+-- Params:
+-- *door* is ObjectRef of door.
+-- *dir* is target direction.
 elevators.rotate_door = function(door, dir)
 	local yaw = vector.dir_to_rotation(dir).y
 	door:set_rotation({x=0, y=yaw, z=0})
@@ -150,6 +154,8 @@ end
 
 -- Cause to call the elevator. It just adds to the queue of calls.
 -- In order to call, it checks if the elevator is not called yet and outer doors locate to the left of the trigger and they are closed, otherwise returns false. Returns true on success.
+-- Params:
+-- *trigger_pos* is positon of trigger.
 elevators.call = function(trigger_pos)
 	local node = minetest.get_node(trigger_pos)
 
@@ -195,6 +201,9 @@ elevators.call = function(trigger_pos)
 	return true
 end
 
+-- Returns net name and index of floor in 'elevators.elevators_nets[floor_i].floors' table with position 'pos'.
+-- Params:
+-- *pos* is position of floor.
 elevators.get_net_name_and_floor_index_from_floor_pos = function(pos)
 	for name, data in pairs(elevators.elevators_nets) do
 		for i, floor in ipairs(data.floors) do
@@ -208,6 +217,9 @@ elevators.get_net_name_and_floor_index_from_floor_pos = function(pos)
 end
 
 -- Converts the elevator cabin from node state to entity doing it 'active' and makes to move smoothly to the destination floor position.
+-- Params:
+-- *net_name* is name of net.
+-- *target_pos* is target position of arrival.
 elevators.activate = function(net_name, target_pos)
 	local net = elevators.elevators_nets[net_name]
 	minetest.debug("1: net.cabin.inner_doors.left pos:" .. dump(net.cabin.inner_doors.left:get_pos()))
@@ -265,12 +277,22 @@ elevators.activate = function(net_name, target_pos)
 	net.cabin.state = "active"
 	self.dir = dir
 
+	net.cabin.attached_objs = {}
+
+	local objs = minetest.get_objects_in_area(vector.add(pos, vector.new(-0.5, -0.5, -0.5)), vector.add(pos, vector.new(0.5, 1.5, 0.5)))
+
+	for i, obj in ipairs(objs) do
+		obj:set_attach(cabin_obj, "", vector.subtract(obj:get_pos(), pos))
+		net.cabin.attached_objs[#net.cabin.attached_objs+1] = obj
+	end
 	cabin_obj:set_velocity(vector.normalize(vector.subtract(self.end_pos, pos)))
 
 	return true
 end
 
 -- Converts the elevator cabin from entity state to node doing it "opening" (not "idle" !) and makes to open doors
+-- Params:
+-- *net_name* is name of net.
 elevators.deactivate = function(net_name)
 	local net = elevators.elevators_nets[net_name]
 
@@ -284,11 +306,21 @@ elevators.deactivate = function(net_name)
 
 	local pos = net.cabin.elevator_object:get_pos()
 	local dir = net.cabin.elevator_object:get_luaentity().dir
+	local net_name = net.cabin.elevator_object:get_luaentity().elevator_net_name
 
+	for i, obj in ipairs(net.cabin.attached_objs) do
+		obj:set_detach()
+	end
+	net.cabin.attached_objs = nil
 	net.cabin.elevator_object:remove()
 	net.cabin.elevator_object = nil
-	local net_name, floor_i = elevators.get_net_name_and_floor_index_from_floor_pos(pos)
-	net.cabin.cur_elevator_position_index = floor_i
+	local _, floor_i = elevators.get_net_name_and_floor_index_from_floor_pos(pos)
+
+	if floor_i then
+		net.cabin.cur_elevator_position_index = floor_i
+	else
+		net.cabin.position = pos
+	end
 	minetest.set_node(pos, {name = "real_elevators:elevator_cabin", param2 = minetest.dir_to_facedir(dir)})
 	local left_door, right_door = elevators.set_doors(pos, -0.45, 0.25)
 	net.cabin.inner_doors.left = left_door
@@ -306,20 +338,23 @@ elevators.deactivate = function(net_name)
 
 	minetest.get_meta(pos):set_string("elevator_net_name", net_name)
 
-	local success = elevators.move_doors(net_name, "open")
-	if not success then
-		return false
+	if floor_i then
+		local success = elevators.move_doors(net_name, "open")
+		if not success then
+			return false
+		end
 	end
 
 	return true
 end
 
+-- Global step. Passed in 'minetest.register_globalstep()'.
 elevators.global_step = function(dtime)
 	for name, data in pairs(elevators.elevators_nets) do
 		if data.cabin.state == "active" then
 			local self = data.cabin.elevator_object:get_luaentity()
 
-			if self and not self.end_pos then
+			if self and not self.end_pos and not self.is_falling then
 				-- The elevator has arrived!
 				minetest.debug("The elevator has arrived!")
 				elevators.deactivate(name)
@@ -355,6 +390,28 @@ elevators.global_step = function(dtime)
 				elevators.activate(name, data.cabin.queue[1])
 			end
 		end
+
+		local pos = data.cabin.cur_elevator_position_index and data.floors[data.cabin.cur_elevator_position_index].position or
+				data.cabin.position or data.cabin.elevator_object and data.cabin.elevator_object:get_pos()
+		local is_rope, state = elevators.check_for_rope(pos)
+
+		if not is_rope then
+			if state == 1 then
+				-- The rope is intercepted, it can not move anymore, so remove its data from 'elevators.elevators_nets' and makes to fall down.
+				if data.cabin.elevator_object then
+					data.cabin.elevator_object:remove()
+				else
+					minetest.remove_node(data.floors[data.cabin.cur_elevator_position_index].position or data.cabin.position)
+				end
+				local falling_cabin = minetest.add_entity(pos, "real_elevators:elevator_cabin_activated")
+				falling_cabin:set_acceleration({x=0, y=-elevators.settings.GRAVITY, z=0})
+				falling_cabin:get_luaentity().is_falling = true
+			elseif state == 2 then
+				if data.cabin.elevator_object then
+					elevators.deactivate(name)
+				end
+			end
+		end
 	end
 end
 
@@ -373,7 +430,12 @@ elevators.update_cabins_formspecs = function()
 	end
 end
 
-elevators.check_for_surrounding_shaft_nodes = function(pos, surrounded_node_dir, placer)
+-- Checks for availability of surrounding shaft nodes (having 'shaft=1' group) and also checks for their proper orientation (should face towards to the cabin). Returns true if success, otherwise false.
+-- Params:
+-- *pos* is position of cabin.
+-- *surrounded_node_dir* is cabin node direction.
+-- *placer* is PlayerRef. If not nil, send chat messages to that player about failure reasons.
+elevators.check_for_surrounding_shaft_nodes = function(pos, surrounded_node_dir, playername)
 	local left_dir = vector.rotate_around_axis(surrounded_node_dir, {x=0, y=1, z=0}, math.pi/2)
 	local right_dir = vector.rotate_around_axis(surrounded_node_dir, {x=0, y=1, z=0}, -math.pi/2)
 
@@ -386,10 +448,6 @@ elevators.check_for_surrounding_shaft_nodes = function(pos, surrounded_node_dir,
 		vector.add(pos, vector.add(surrounded_node_dir, vector.new(0, 1, 0)))	-- Back upper pos
 	}
 
-	local playername
-	if placer then
-		playername = placer:get_player_name()
-	end
 	for i, p in ipairs(surround_nodes_positions) do
 		local shaft = minetest.get_node(p)
 		local is_shaft = minetest.get_item_group(shaft.name, "shaft")
@@ -416,7 +474,7 @@ elevators.check_for_surrounding_shaft_nodes = function(pos, surrounded_node_dir,
 
 	local up_node = minetest.get_node(vector.add(pos, vector.new(0, 1, 0)))
 
-	if up_node.name ~= "air" then
+	if up_node.name ~= "air" and up_node.name ~= "real_elevators:elevator_rope" then
 		if playername then
 			minetest.chat_send_player(playername, "There is no space for placing/moving the elevator cabin!")
 		end
@@ -426,6 +484,36 @@ elevators.check_for_surrounding_shaft_nodes = function(pos, surrounded_node_dir,
 	return true
 end
 
+-- Checks for rope continuity and winch availability. Returns true if success, otherwise false and reason: '1' is rope is intercepted, '2' is rope is too long. In both cases sends message to player with 'playername'
+-- Params:
+-- *pos* is position of cabin.
+-- *playername* is name of player to send message about failure.
+elevators.check_for_rope = function(pos, playername)
+	local rope_pos = {x=pos.x, y=pos.y+2, z=pos.z}
+
+	for n = 1, elevators.settings.MAX_ROPE_LENGTH do
+		local node = minetest.get_node(rope_pos)
+
+		if node.name == "real_elevators:elevator_winch" then
+			return true
+		elseif node.name ~= "real_elevators:elevator_rope" then
+			if playername then
+				minetest.chat_send_player(playername, "The rope is intercepted!")
+			return false, 1, rope_pos
+		end
+
+		rope_pos = {x=rope_pos.x, y=rope_pos.y+1, z=rope_pos.z}
+	end
+
+	minetest.chat_send_player(playername, "The rope is too long!")
+	return false, 2
+end
+
+
+-- Formspec
+-- ================================================================
+
+-- Returns form of when player is needed to create new elevator net.
 elevators.get_enter_elevator_net_name_formspec = function()
 	local form = "formspec_version[4]size[6,3]style_type[label;font=normal,bold]label[0.5,0.5;Enter name for new elevator net to create:]" ..
 			"field[2,1;2,0.5;elevator_net_name;;]button[2,2;2,0.5;elevator_net_name_enter;Enter]"
@@ -433,6 +521,7 @@ elevators.get_enter_elevator_net_name_formspec = function()
 	return form
 end
 
+-- Returns form of when player wants to create new floor with defining number/description/position of that destination.
 elevators.get_add_floor_formspec = function(number, description, position)
 	number = number or 0
 	description = description or ""
@@ -454,6 +543,7 @@ elevators.get_add_floor_formspec = function(number, description, position)
 	return form
 end
 
+-- Returns form of list with all created floors. Allows to be teleported to anything of them on clicking the corresponding floor button.
 elevators.get_floor_list_formspec = function(elevator_net_name)
 	local form = {
 		"formspec_version[4]",
