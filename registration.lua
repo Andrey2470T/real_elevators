@@ -16,7 +16,7 @@ local tex_names_used = {
 
 local elevator_parts_defs = {
 	["elevator_shaft_leftside"] = {
-		description = "Elevator Shaft (Left) Side Block",
+		description = elevators.S("Elevator Shaft (Left) Side Block"),
 		tiles = {3, 3, 3, 3, 3, 1},
 		node_box = {
             {-0.5, -0.5, 0.0, -0.4, 0.5, 0.5},
@@ -26,7 +26,7 @@ local elevator_parts_defs = {
 		sounds = default.node_sound_stone_defaults()
 	},
 	["elevator_shaft_rightside"] = {
-		description = "Elevator Shaft (Right) Side Block",
+		description = elevators.S("Elevator Shaft (Right) Side Block"),
 		tiles = {3, 3, 3, 3, 3, 1},
 		node_box = {
 			{-0.5, -0.5, -0.5, 0.4, 0.5, 0.5},
@@ -36,14 +36,14 @@ local elevator_parts_defs = {
 		sounds = default.node_sound_stone_defaults()
 	},
 	["elevator_shaft_back"] = {
-		description = "Elevator Shaft Back Block",
+		description = elevators.S("Elevator Shaft Back Block"),
 		tiles = {2, 2, 2, 2, 2, 1},
 		collision_box = {-0.5, -0.5, -0.5, 0.5, 0.5, 0.5},
 		groups = {shaft=1},
 		sounds = default.node_sound_stone_defaults()
 	},
 	["elevator_outer_wall_leftslot"] = {
-		description = "Elevator Outer Wall With Left Slot",
+		description = elevators.S("Elevator Outer Wall With Left Slot"),
 		tiles = {3},
 		node_box = {
 			{-0.5, -0.5, 0.4, 0.0, 0.5, 0.5},
@@ -52,7 +52,7 @@ local elevator_parts_defs = {
 		sounds = default.node_sound_stone_defaults()
 	},
 	["elevator_outer_wall_rightslot"] = {
-		description = "Elevator Outer Wall With Right Slot",
+		description = elevators.S("Elevator Outer Wall With Right Slot"),
 		tiles = {3},
 		node_box = {
 			{0.0, -0.5, 0.4, 0.5, 0.5, 0.5},
@@ -61,26 +61,26 @@ local elevator_parts_defs = {
 		sounds = default.node_sound_stone_defaults()
 	},
 	["elevator_outer_wall"] = {
-		description = "Elevator Outer Wall",
+		description = elevators.S("Elevator Outer Wall"),
 		tiles = {3},
 		node_box = {-0.5, -0.5, 0.0, 0.5, 0.5, 0.5},
 		sounds = default.node_sound_stone_defaults()
 	},
 	["elevator_outer_shaft_wall"] = {
-		description = "Elevator Outer Shaft Wall",
+		description = elevators.S("Elevator Outer Shaft Wall"),
 		tiles = {3, 3, 3, 3, 3, 1},
 		node_box = {-0.5, -0.5, -0.5, 0.5, 0.5, 0.0},
 		groups = {shaft=1},
 		sounds = default.node_sound_stone_defaults()
 	},
 	["elevator_shaft_corner"] = {
-		description = "Elevator Shaft Corner Block",
+		description = elevators.S("Elevator Shaft Corner Block"),
 		tiles = {2},
 		collision_box = {-0.5, -0.5, -0.5, 0.5, 0.5, 0.5},
 		sounds = default.node_sound_stone_defaults()
 	},
 	["elevator_outer_wall_with_trigger_off"] = {
-		description = "Elevator Outer Wall With Trigger (off)",
+		description = elevators.S("Elevator Outer Wall With Trigger (off)"),
 		tiles = {5, 6, 7, 8, 2, 9},
 		node_box = {
 			{-0.5, -0.5, 0.0, 0.5, 0.5, 0.4},
@@ -95,7 +95,7 @@ local elevator_parts_defs = {
 		end
 	},
 	["elevator_outer_wall_with_trigger_on"] = {
-		description = "Elevator Outer Wall With Trigger (on)",
+		description = elevators.S("Elevator Outer Wall With Trigger (on)"),
 		tiles = {5, 6, 7, 8, 2, 10},
 		node_box = {
 			{-0.5, -0.5, 0.0, 0.5, 0.5, 0.4},
@@ -109,7 +109,7 @@ local elevator_parts_defs = {
 	},
 	["elevator_doors_closed"] = {
 		visual_scale = 0.5,
-		description = "Elevator doors (closed)",
+		description = elevators.S("Elevator doors (closed)"),
 		mesh = "real_elevators_elevator_doors_closed.b3d",
 		tiles = {4},
 		collision_box = {-0.5, -0.5, 0.4, 0.5, 1.5, 0.5},
@@ -118,7 +118,7 @@ local elevator_parts_defs = {
 	},
 	["elevator_doors_opened"] = {
 		visual_scale = 0.5,
-		description = "Elevator doors (opened)",
+		description = elevators.S("Elevator doors (opened)"),
 		mesh = "real_elevators_elevator_doors_opened.b3d",
 		tiles = {4},
 		collision_box = {
@@ -129,17 +129,17 @@ local elevator_parts_defs = {
 		sounds = default.node_sound_metal_defaults()
 	},
 	["elevator_winch"] = {
-		description = "Elevator Winch",
+		description = elevators.S("Elevator Winch"),
 		mesh = "real_elevators_winch.b3d",
 		tiles = {"real_elevators_winch.png"},
 		collision_box = {-0.5, -0.5, -0.5, 0.5, 0.5, 0.5},
 		sounds = default.node_sound_metal_defaults()
 	},
 	["elevator_rope"] = {
-		description = "Elevator Rope",
+		description = elevators.S("Elevator Rope"),
 		drawtype = "plantlike",
 		tiles = {"real_elevators_rope.png"},
-		selection_box = {-0.2, -0.5, -0.2, 0.2, 0.5, 0.2},
+		collision_box = {-0.2, -0.5, -0.2, 0.2, 0.5, 0.2},
 		walkable = false,
 		climbable = true,
 		sounds = default.node_sound_leaves_defaults()
@@ -160,10 +160,10 @@ for name, def in pairs(elevator_parts_defs) do
 
 	full_def.tiles = {}
 	for i, index in ipairs(def.tiles) do
-		if type(index) == "table" then
-			full_def.tiles[i] = index
-		elseif type(index) == "number" then
+		if type(index) == "number" then
 			full_def.tiles[i] = tex_names_used[index]
+		else
+			full_def.tiles[i] = index
 		end
 	end
 
@@ -174,11 +174,11 @@ for name, def in pairs(elevator_parts_defs) do
 			fixed = def.node_box
 		}
 	elseif def.collision_box then
-		if type(def.mesh) == "string" and #def.mesh > 0 then
+		if type(def.mesh) == "string" and def.mesh ~= "" then
 			full_def.drawtype = "mesh"
 			full_def.mesh = def.mesh
 		else
-			full_def.drawtype = "regular"
+			full_def.drawtype = def.drawtype
 		end
 
 		full_def.collision_box = {
@@ -213,7 +213,7 @@ end
 elevators.elevator_doors = minetest.deserialize(elevators.mod_storage:get_string("elevator_doors")) or {}
 
 minetest.register_node("real_elevators:elevator_cabin", {
-	description = "Elevator cabin",
+	description = elevators.S("Elevator cabin"),
 	visual_scale = 0.1,
 	wield_scale = {x=0.1, y=0.1, z=0.1},
 	drawtype = "mesh",
@@ -247,7 +247,7 @@ minetest.register_node("real_elevators:elevator_cabin", {
 	groups = {cracky=1.5, cabin=1},
 	sounds = default.node_sound_metal_defaults(),
 	on_construct = function(pos)
-		local net_name = elevators.get_net_name_and_floor_index_from_floor_pos(pos)
+		local net_name = elevators.get_net_name_from_cabin_pos(pos)
 
 		local meta = minetest.get_meta(pos)
 		--meta:set_string("state", "idle")
@@ -282,6 +282,7 @@ minetest.register_node("real_elevators:elevator_cabin", {
 		local net_name = minetest.get_meta(pos):get_string("elevator_net_name")
 
 		if net_name ~= "" then
+			minetest.debug("Closing doors...")
 			elevators.move_doors(net_name, "close")
 		end
 	end,
@@ -308,7 +309,7 @@ minetest.register_node("real_elevators:elevator_cabin", {
 				}
 			}
 
-			local left_door, right_door = elevators.set_doors(pos, -0.45, 0.25)
+			local left_door, right_door = elevators.set_doors(pos, minetest.facedir_to_dir(minetest.get_node(pos).param2), -0.45, 0.25)
 			elevators.elevators_nets[fields.elevator_net_name].cabin.inner_doors.left = left_door
             elevators.elevators_nets[fields.elevator_net_name].cabin.inner_doors.right = right_door
 
@@ -469,7 +470,7 @@ minetest.register_entity("real_elevators:elevator_cabin_activated", {
 			self.end_pos = data[1]
 			self.dir = data[2]
 			self.elevator_net_name = data[3]
-			self.is_falling data[4]
+			self.is_falling = data[4]
 		end
 
 		for name, data in pairs(elevators.elevators_nets) do
@@ -504,35 +505,38 @@ minetest.register_entity("real_elevators:elevator_cabin_activated", {
 		local top_pos = {x=pos.x, y=pos.y+2, z=pos.z}
 		local top_node = minetest.get_node(top_pos)
 
-		if top_node.name == "real_elevators:elevator_winch" then
+		if top_node.name == "real_elevators:elevator_winch" and
+			vector.direction(pos, top_pos) == vector.normalize(self.object:get_velocity()) then
 			self.object:set_velocity(vector.new())
 			self.end_pos = nil
 			return
 		end
 
-		minetest.set_node({x=pos.x, y=pos.y+2, z=pos.z}, {name="real_elevators:elevator_rope"})
+		if top_node.name ~= "real_elevators:elevator_winch" then
+			minetest.set_node({x=pos.x, y=pos.y+2, z=pos.z}, {name="real_elevators:elevator_rope"})
+		end
 	end,
 	on_deactivate = function(self)
+		minetest.debug("self.elevator_net_name: " .. (self.elevator_net_name ~= nil and self.elevator_net_name or "nil"))
 		local net = elevators.elevators_nets[self.elevator_net_name]
 
 		net.cabin.inner_doors.left:remove()
 		net.cabin.inner_doors.right:remove()
+
+		for i, obj in ipairs(net.cabin.attached_objs) do
+			if obj:get_luaentity() then
+				obj:set_detach()
+			end
+		end
 		net = nil
 	end,
-	--[[on_attach_child = function(self, child)
-		local child_self = child:get_luaentity()
-
-		if child_self.name ~= "real_elevators:elevator_door_moving" then
-			child:set_properties({visual_size = {x=1, y=1, z=1}})
-		end
-	end,]]
 	get_staticdata = function(self)
 		return minetest.serialize({self.end_pos, self.dir, self.elevator_net_name, self.is_falling})
 	end
 })
 
 minetest.register_tool("real_elevators:floor_mark_tool", {
-	description = "Floor Mark Tool (right-click a node to mark that position for adding a new floor for an elevator net)",
+	description = elevators.S("Floor Mark Tool (right-click a node to mark that position for adding a new floor for an elevator net)"),
 	inventory_image = "real_elevators_floor_mark_tool.png",
 	stack_max = 1,
 	on_place = function(itemstack, placer, pointed_thing)
@@ -567,54 +571,6 @@ minetest.register_entity("real_elevators:marked_block_area", {
 	}
 })
 
-minetest.register_on_shutdown(function()
-	for name, data in pairs(elevators.elevators_nets) do
-		if data.cabin.elevator_object then
-			data.cabin.elevator_object = data.cabin.elevator_object:get_pos()
-		end
-
-		if data.outer_doors then
-			local outer_left_door_self = data.outer_doors.left:get_luaentity()
-			local outer_right_door_self = data.outer_doors.right:get_luaentity()
-
-			if outer_left_door_self then
-				data.outer_doors.left:set_pos(outer_left_door_self.end_pos)
-				data.outer_doors.left = outer_left_door_self.end_pos
-			end
-
-			if outer_right_door_self then
-				data.outer_doors.right:set_pos(outer_right_door_self.end_pos)
-				data.outer_doors.right = outer_right_door_self.end_pos
-			end
-		end
-
-		local inner_left_door_self = data.cabin.inner_doors.left:get_luaentity()
-		local inner_right_door_self = data.cabin.inner_doors.right:get_luaentity()
-
-		if inner_left_door_self then
-			if inner_left_door_self.end_pos then
-				data.cabin.inner_doors.left:set_pos(inner_left_door_self.end_pos)
-				data.cabin.inner_doors.left = inner_left_door_self.end_pos
-			else
-				data.cabin.inner_doors.left = data.cabin.inner_doors.left:get_pos()
-			end
-		end
-
-		if inner_right_door_self then
-			if inner_right_door_self.end_pos then
-				data.cabin.inner_doors.right:set_pos(inner_right_door_self.end_pos)
-				data.cabin.inner_doors.right = inner_right_door_self.end_pos
-			else
-				data.cabin.inner_doors.right = data.cabin.inner_doors.right:get_pos()
-			end
-		end
-	end
-
-	-- Save all necessary data before shutdown
-	elevators.mod_storage:set_string("elevators_nets", minetest.serialize(elevators.elevators_nets))
-	--elevators.mod_storage:set_string("elevator_doors", minetest.serialize(elevators.elevator_doors))
-	elevators.mod_storage:set_string("current_marked_pos", minetest.serialize(elevators.current_marked_pos))
-end)
-
-
+minetest.register_on_shutdown(elevators.on_shutdown)
 minetest.register_globalstep(elevators.global_step)
+minetest.register_on_joinplayer(elevators.on_join)

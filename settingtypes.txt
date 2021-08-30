@@ -1,0 +1,13 @@
+#    Sets velocity of elevator cabin when moving from one point to other.
+real_elevators_cabin_velocity (Cabin velocity) float 1.0 0.0 20.0
+
+#    Sets velocity of door objects when cabin state is 'opening'/'closing'.
+real_elevators_doors_velocity (Doors velocity) float 0.25 0.0 0.5
+
+#    Maximum length of rope on which cabin is hung up.
+#    It should be not very high (approx not above '1000') to avoid large delay
+real_elevators_max_rope_length (Maximum rope length) int 500 0 5000
+
+#    Gravity acceleration factor of cabin when its rope is intercepted.
+#    Should be positive!
+real_elevators_gravity (Gravity) float 9.8 0.0 100.0
