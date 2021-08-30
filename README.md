@@ -21,7 +21,9 @@ How it looks like without outer walls that was adjacent to the shaft in prior sc
 Next materials that you will need for building: shaft nodes (corner block, back block, left/right side blocks, outer shaft wall), wall nodes (outer wall, outer wall with trigger, outer wall with left/right side slots), rope, winch, marker tool and cabin of elevator. 
 
 Building steps (where '#' is optional):
+
 #1. Set platform from corner blocks.
+
 2. Set corner blocks in back side of shaft, left side blocks in left side, right side blocks in right side correspondingly. Those blocks are intended to be set where doors are, in other cases it is recommended to use back side blocks.
 !!!Important!!! All those shaft blocks should face to the inside of the shaft, otherwise the cabin just won't go.
 3. Set outer walls with left/right side slots in the correspodning places as the screenshots show.
