@@ -22,11 +22,10 @@ Next materials that you will need for building: shaft nodes (corner block, back 
 
 Building steps (where '#' is optional):
 
-#1. Set platform from corner blocks.
-
+1. Set platform from corner blocks (#).
 2. Set corner blocks in back side of shaft, left side blocks in left side, right side blocks in right side correspondingly. Those blocks are intended to be set where doors are, in other cases it is recommended to use back side blocks.
 !!!Important!!! All those shaft blocks should face to the inside of the shaft, otherwise the cabin just won't go.
-3. Set outer walls with left/right side slots in the correspodning places as the screenshots show.
+3. Set outer walls with left/right side slots in the correspodning places as the screenshots show (#).
 4. Set outer wall with trigger.
 !!!Important!!! It should be set in left side and at one block above the marked floor position (on the screenshots it looks like simple outer wall, but with red luminant button), otherwise you can't just call the elevator.
 5. When you built shaft with one floor, it is necessary to set a winch on top of that for cabin could move upside or downside. Connect with that more ropes if you need.
