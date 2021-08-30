@@ -23,7 +23,14 @@ local elevator_parts_defs = {
 			{-0.4, -0.5, -0.5, 0.5, 0.5, 0.5}
 		},
 		groups = {shaft=1},
-		sounds = default.node_sound_stone_defaults()
+		sounds = default.node_sound_stone_defaults(),
+		craft = {
+			recipe = {
+				{"", "default:clay_lump", "basic_materials:steel_bar"},
+				{"", "default:clay_lump", "basic_materials:steel_bar"},
+				{"", "default:clay_lump", "basic_materials:steel_bar"}
+			}
+		}
 	},
 	["elevator_shaft_rightside"] = {
 		description = elevators.S("Elevator Shaft (Right) Side Block"),
@@ -33,14 +40,28 @@ local elevator_parts_defs = {
 			{0.4, -0.5, 0.0, 0.5, 0.5, 0.5}
 		},
 		groups = {shaft=1},
-		sounds = default.node_sound_stone_defaults()
+		sounds = default.node_sound_stone_defaults(),
+		craft = {
+			recipe = {
+				{"basic_materials:steel_bar", "default:clay_lump", ""},
+				{"basic_materials:steel_bar", "default:clay_lump", ""},
+				{"basic_materials:steel_bar", "default:clay_lump", ""}
+			}
+		}
 	},
 	["elevator_shaft_back"] = {
 		description = elevators.S("Elevator Shaft Back Block"),
 		tiles = {2, 2, 2, 2, 2, 1},
 		collision_box = {-0.5, -0.5, -0.5, 0.5, 0.5, 0.5},
 		groups = {shaft=1},
-		sounds = default.node_sound_stone_defaults()
+		sounds = default.node_sound_stone_defaults(),
+		craft = {
+			recipe = {
+				{"basic_materials:steel_bar", "default:clay_lump", "basic_materials:steel_bar"},
+				{"basic_materials:steel_bar", "default:clay_lump", "basic_materials:steel_bar"},
+				{"basic_materials:steel_bar", "default:clay_lump", "basic_materials:steel_bar"}
+			}
+		}
 	},
 	["elevator_outer_wall_leftslot"] = {
 		description = elevators.S("Elevator Outer Wall With Left Slot"),
@@ -49,7 +70,14 @@ local elevator_parts_defs = {
 			{-0.5, -0.5, 0.4, 0.0, 0.5, 0.5},
 			{-0.5, -0.5, 0.0, 0.5, 0.5, 0.4}
 		},
-		sounds = default.node_sound_stone_defaults()
+		sounds = default.node_sound_stone_defaults(),
+		craft = {
+			recipe = {
+				{"", "", "default:clay_lump"},
+				{"", "", "default:clay_lump"},
+				{"", "", "default:clay_lump"}
+			}
+		}
 	},
 	["elevator_outer_wall_rightslot"] = {
 		description = elevators.S("Elevator Outer Wall With Right Slot"),
@@ -58,26 +86,48 @@ local elevator_parts_defs = {
 			{0.0, -0.5, 0.4, 0.5, 0.5, 0.5},
 			{-0.5, -0.5, 0.0, 0.5, 0.5, 0.4}
 		},
-		sounds = default.node_sound_stone_defaults()
+		sounds = default.node_sound_stone_defaults(),
+		craft = {
+			recipe = {
+				{"default:clay_lump", "", ""},
+				{"default:clay_lump", "", ""},
+				{"default:clay_lump", "", ""}
+			}
+		}
 	},
 	["elevator_outer_wall"] = {
 		description = elevators.S("Elevator Outer Wall"),
 		tiles = {3},
 		node_box = {-0.5, -0.5, 0.0, 0.5, 0.5, 0.5},
-		sounds = default.node_sound_stone_defaults()
+		sounds = default.node_sound_stone_defaults(),
+		craft = {
+			recipe = {
+				{"", "default:clay_lump", ""},
+				{"", "default:clay_lump", ""},
+				{"", "default:clay_lump", ""}
+			}
+		}
 	},
 	["elevator_outer_shaft_wall"] = {
 		description = elevators.S("Elevator Outer Shaft Wall"),
 		tiles = {3, 3, 3, 3, 3, 1},
 		node_box = {-0.5, -0.5, -0.5, 0.5, 0.5, 0.0},
 		groups = {shaft=1},
-		sounds = default.node_sound_stone_defaults()
+		sounds = default.node_sound_stone_defaults(),
+		craft = {
+			recipe = {"real_elevators:elevator_shaft_back"},
+			replacements = {{"real_elevators:elevator_shaft_back", "real_elevators:elevator_outer_wall"}}
+		}
 	},
 	["elevator_shaft_corner"] = {
 		description = elevators.S("Elevator Shaft Corner Block"),
 		tiles = {2},
 		collision_box = {-0.5, -0.5, -0.5, 0.5, 0.5, 0.5},
-		sounds = default.node_sound_stone_defaults()
+		sounds = default.node_sound_stone_defaults(),
+		craft = {
+			type = "shapeless",
+			recipe = {"default:clay"}
+		}
 	},
 	["elevator_outer_wall_with_trigger_off"] = {
 		description = elevators.S("Elevator Outer Wall With Trigger (off)"),
@@ -92,7 +142,14 @@ local elevator_parts_defs = {
 		sounds = default.node_sound_stone_defaults(),
 		on_rightclick = function(pos, node, clicker, itemstack, pointed_thing)
 			elevators.call(pos)
-		end
+		end,
+		craft = {
+			recipe = {
+				{"default:clay_lump", "default:clay_lump", "default:clay_lump"},
+				{"default:clay_lump", "basic_materials:ic", "default:clay_lump"},
+				{"default:clay_lump", "basic_materials:plastic_sheet", "default:clay_lump"}
+			}
+		}
 	},
 	["elevator_outer_wall_with_trigger_on"] = {
 		description = elevators.S("Elevator Outer Wall With Trigger (on)"),
@@ -114,7 +171,11 @@ local elevator_parts_defs = {
 		tiles = {4},
 		collision_box = {-0.5, -0.5, 0.4, 0.5, 1.5, 0.5},
 		groups = {doors=1, state=0},
-		sounds = default.node_sound_metal_defaults()
+		sounds = default.node_sound_metal_defaults(),
+		craft = {
+			type = "shapeless",
+			recipe = {"stairs:slab_steelblock", "stairs:slab_steelblock", "stairs:slab_steelblock", "stairs:slab_steelblock"}
+		}
 	},
 	["elevator_doors_opened"] = {
 		visual_scale = 0.5,
@@ -133,7 +194,14 @@ local elevator_parts_defs = {
 		mesh = "real_elevators_winch.b3d",
 		tiles = {"real_elevators_winch.png"},
 		collision_box = {-0.5, -0.5, -0.5, 0.5, 0.5, 0.5},
-		sounds = default.node_sound_metal_defaults()
+		sounds = default.node_sound_metal_defaults(),
+		craft = {
+			recipe = {
+				{"basic_materials:gear_steel", "basic_materials:steel_wire", "basic_materials:motor"},
+				{"basic_materials:steel_bar", "basic_materials:steel_bar", "basic_materials:steel_bar"},
+				{"basic_materials:steel_bar", "real_elevators:elevator_rope", "basic_materials:steel_bar"}
+			}
+		}
 	},
 	["elevator_rope"] = {
 		description = elevators.S("Elevator Rope"),
@@ -142,7 +210,14 @@ local elevator_parts_defs = {
 		collision_box = {-0.2, -0.5, -0.2, 0.2, 0.5, 0.2},
 		walkable = false,
 		climbable = true,
-		sounds = default.node_sound_leaves_defaults()
+		sounds = default.node_sound_leaves_defaults(),
+		craft = {
+			recipe = {
+				{"", "farming:cotton", ""},
+				{"", "basic_materials:steel_strip", ""},
+				{"", "farming:cotton", ""}
+			}
+		}
 	}
 }
 
@@ -208,6 +283,14 @@ for name, def in pairs(elevator_parts_defs) do
 	full_def.on_timer = def.on_timer
 
 	minetest.register_node("real_elevators:" .. name, full_def)
+
+	if def.craft then
+		local craft_def = def.craft
+		craft_def.type = craft_def.type or craft_def.replacements and "shapeless"
+		craft_def.output = "real_elevators:" .. name
+
+		minetest.register_craft(craft_def)
+	end
 end
 
 elevators.elevator_doors = minetest.deserialize(elevators.mod_storage:get_string("elevator_doors")) or {}
@@ -381,7 +464,8 @@ minetest.register_node("real_elevators:elevator_cabin", {
 
 		local net_name = minetest.get_meta(pos):get_string("elevator_net_name")
 
-		if net_name ~= "" and elevators.elevators_nets[net_name].cabin.state == "pending" then
+		local state = elevators.elevators_nets[net_name].cabin.state
+		if net_name ~= "" and (state == "pending" or state == "idle") then
 			for i, floor in ipairs(elevators.elevators_nets[net_name].floors) do
 				if fields["floor_" .. tostring(i)] then
 					table.insert(elevators.elevators_nets[net_name].cabin.queue, 1, floor.position)
@@ -393,6 +477,15 @@ minetest.register_node("real_elevators:elevator_cabin", {
 	end
 })
 
+minetest.register_craft({
+	output = "real_elevators:elevator_cabin",
+	recipe = {
+		{"basic_materials:steel_bar", "default:steel_ingot", "basic_materials:steel_bar"},
+		{"default:steel_ingot", "basic_materials:ic", "default:steel_ingot"},
+		{"basic_materials:steel_bar", "real_elevators:elevator_doors_closed", "basic_materials:steel_bar"}
+	}
+})
+
 minetest.register_entity("real_elevators:elevator_door_moving", {
 	visual_size = {x=1, y=1, z=1},
 	visual = "mesh",
@@ -400,7 +493,7 @@ minetest.register_entity("real_elevators:elevator_door_moving", {
 	physical = true,
 	collide_with_objects = true,
 	collisionbox = {-0.25, -0.5, -0.05, 0.25, 1.5, 0.05},
-	pointable = true,
+	pointable = false,
 	textures = {tex_names_used[4]},
 	on_activate = function(self, staticdata, dtime_s)
 		if staticdata ~= "" then
@@ -518,6 +611,9 @@ minetest.register_entity("real_elevators:elevator_cabin_activated", {
 	end,
 	on_deactivate = function(self)
 		minetest.debug("self.elevator_net_name: " .. (self.elevator_net_name ~= nil and self.elevator_net_name or "nil"))
+		if not self.elevator_net_name then
+			return
+		end
 		local net = elevators.elevators_nets[self.elevator_net_name]
 
 		net.cabin.inner_doors.left:remove()

@@ -1,5 +1,5 @@
 -- REAL ELEVATORS API
--- ==============================================================================
+-- ============================================================================
 
 
 elevators.trigger_states = {
@@ -66,6 +66,12 @@ elevators.set_doors = function(pos, dir, z_shift, x_shift)
 	return left_door, right_door
 end
 
+elevators.set_cabin = function(pos, dir)
+	local cabin = minetest.add_entity(pos, "real_elevators:elevator_cabin_activated")
+	cabin:set_rotation({x=0, y=vector.dir_to_rotation(dir).y, z=0})
+
+	return cabin
+end
 
 -- Rotates door object around Y axis by angle enclosed between '{x=0, y=0, z=1}' and 'dir' vectors. Those vectors must be mutually-perpendicular! Except mesh, it rotates also its collision & selection boxes.
 -- Params:
@@ -134,7 +140,7 @@ elevators.move_doors = function(net_name, action)
 	if is_doors == 1 then
 		minetest.remove_node(doors_pos)
 		local x_shift = action == "close" and 0.75 or 0.25
-		local outer_left_door, outer_right_door = elevators.set_doors(doors_pos, cabin_dir, 0.5, x_shift)
+		local outer_left_door, outer_right_door = elevators.set_doors(doors_pos, cabin_dir, 0.45, x_shift)
 
 		net.outer_doors = {left = outer_left_door, right = outer_right_door}
 		local outer_ldoor_entity = net.outer_doors.left:get_luaentity()
@@ -221,9 +227,6 @@ end
 elevators.get_net_name_from_cabin_pos = function(pos)
 	for name, data in pairs(elevators.elevators_nets) do
 		local cabin_pos = elevators.get_cabin_pos_from_net_name(name)
-		minetest.debug("pos: " .. dump(pos))
-		minetest.debug("floors: " .. dump(data.floors))
-		minetest.debug("cabin_pos: " .. dump(cabin_pos))
 		if cabin_pos and vector.equals(pos, cabin_pos) then
 			return name
 		end
@@ -235,15 +238,9 @@ end
 elevators.get_cabin_pos_from_net_name = function(net_name)
 	local net = elevators.elevators_nets[net_name]
 
-	minetest.debug("net.cabin.cur_elevator_position_index: " .. tostring(net.cabin.cur_elevator_position_index))
-	minetest.debug("type(net.cabin.cur_elevator_position_index): " .. type(net.cabin.cur_elevator_position_index))
-	minetest.debug("net.floors[net.cabin.cur_elevator_position_index].position: " .. (net.cabin.cur_elevator_position_index and dump(net.floors[net.cabin.cur_elevator_position_index].position) or "nil"))
-	minetest.debug("net.cabin.position: " .. (dump(net.cabin.position) or "nil"))
-	minetest.debug("net.cabin.elevator_object:get_pos(): " .. (net.cabin.elevator_object and dump(net.cabin.elevator_object:get_pos()) or "nil"))
 	local pos
 	if net.cabin.cur_elevator_position_index then
 		pos = net.floors[net.cabin.cur_elevator_position_index].position
-		minetest.debug("pos: " .. dump(pos))
 	elseif net.cabin.elevator_object then
 		pos = net.cabin.elevator_object:get_pos()
 	else
@@ -290,8 +287,7 @@ elevators.activate = function(net_name, target_pos)
 	local formspec = meta:get_string("formspec")
 	minetest.remove_node(pos)
 
-	local cabin_obj = minetest.add_entity(pos, "real_elevators:elevator_cabin_activated")
-	cabin_obj:set_rotation({x=0, y=vector.dir_to_rotation(dir).y, z=0})
+	local cabin_obj = elevators.set_cabin(pos, dir)
 
 	local self = cabin_obj:get_luaentity()
 	self.elevator_net_name = net_name
@@ -318,8 +314,16 @@ elevators.activate = function(net_name, target_pos)
 	local objs = minetest.get_objects_in_area(vector.add(pos, vector.new(-0.5, -0.5, -0.5)), vector.add(pos, vector.new(0.5, 1.5, 0.5)))
 
 	for i, obj in ipairs(objs) do
-		minetest.debug("self:" .. dump(obj:get_luaentity()))
-		if obj ~= cabin_obj and obj:get_luaentity().name ~= "real_elevators:elevator_door_moving" then
+		local allow_attach = false
+		if obj:is_player() then
+			allow_attach = true
+		else
+			local self = obj:get_luaentity()
+			if self.name ~= "real_elevators:elevator_cabin_activated" and self.name ~= "real_elevators:elevator_door_moving" then
+				allow_attach = true
+			end
+		end
+		if allow_attach then
 			obj:set_attach(cabin_obj, "")
 			obj:set_pos(vector.subtract(obj:get_pos(), pos))
 			net.cabin.attached_objs[#net.cabin.attached_objs+1] = obj
@@ -362,7 +366,9 @@ elevators.deactivate = function(net_name)
 	local left_door, right_door = elevators.set_doors(pos, dir, -0.45, 0.25)
 	net.cabin.inner_doors.left = left_door
 	net.cabin.inner_doors.right = right_door
+	minetest.debug("net.cabin.queue(1): " .. dump(net.cabin.queue))
 	table.remove(net.cabin.queue, 1)
+	minetest.debug("net.cabin.queue(2): " .. dump(net.cabin.queue))
 
 	local trigger_pos = vector.add(pos, vector.add(vector.add(vector.multiply(dir, -1), vector.new(0, 1, 0)), vector.rotate_around_axis(dir, vector.new(0, 1, 0), math.pi/2)))
 	local trigger = minetest.get_node(trigger_pos)
@@ -460,26 +466,30 @@ elevators.check_for_rope = function(pos, playername)
 
 	for n = 1, elevators.settings.MAX_ROPE_LENGTH do
 		local node = minetest.get_node(rope_pos)
-
+		minetest.debug("check_for_rope() node.name: " .. node.name)
 		if node.name == "real_elevators:elevator_winch" then
 			return true
 		elseif node.name ~= "real_elevators:elevator_rope" then
 			if playername then
-				--minetest.chat_send_player(playername, "The rope is intercepted!")
-				return false, 1, rope_pos
+				minetest.chat_send_player(playername, "The rope is intercepted!")
 			end
+			--minetest.chat_send_player(playername, "The rope is intercepted!")
+			return false, 1, rope_pos
 		end
 
 		rope_pos = {x=rope_pos.x, y=rope_pos.y+1, z=rope_pos.z}
 	end
 
+	if playername then
+		minetest.chat_send_player(playername, "The rope is too long!")
+	end
 	--minetest.chat_send_player(playername, "The rope is too long!")
 	return false, 2
 end
 
 
 -- Formspec
--- ==================================================================
+-- ============================================================================
 
 -- Returns form of when player is needed to create new elevator net.
 elevators.get_enter_elevator_net_name_formspec = function()
@@ -528,7 +538,7 @@ elevators.get_floor_list_formspec = function(elevator_net_name)
 		return
 	end
 
-	minetest.debug("elevators.elevators_nets[elevator_net_name].floors:" .. dump(elevators.elevators_nets[elevator_net_name].floors))
+	local btns_space = 0.25
 	local y_space = 0.25
 	local button_size = 1
 	for i, floor in ipairs(elevators.elevators_nets[elevator_net_name].floors) do
@@ -536,19 +546,18 @@ elevators.get_floor_list_formspec = function(elevator_net_name)
 		form[#form+1] = "button[0.5," .. tostring(y_space) .. ";" .. button_size .. "," .. button_size .. ";" .. but_name .. ";" .. floor.number .. "]"
 		form[#form+1] = "tooltip[" .. but_name .. ";Floor #" .. floor.number .. ": \"" .. floor.description .. "\".\nLocates at: " .. minetest.pos_to_string(floor.position) .. "]"
 
-		y_space = y_space + (button_size + y_space)
+		y_space = y_space + (button_size + btns_space)
 	end
 
 	form[#form+1] = "scroll_container_end[]"
 	form[#form+1] = "image_button[1.5,7.5;1,1;real_elevators_floor_plus.png;add_floor;]tooltip[add_floor;Add still floors]"
-	minetest.debug("form:" .. dump(form))
 
 	return table.concat(form, "")
 end
 
 
 -- Callbacks
--- ==================================================================
+-- ============================================================================
 
 -- Global step. Passed in 'minetest.register_globalstep()'.
 elevators.global_step = function(dtime)
@@ -603,13 +612,16 @@ elevators.global_step = function(dtime)
 		if not is_rope then
 			if state == 1 then
 				minetest.debug("Cabin is falling down!")
+				local dir
 				-- The rope is intercepted, it can not move anymore, so remove its data from 'elevators.elevators_nets' and makes to fall down.
 				if data.cabin.elevator_object then
+					dir = data.cabin.elevator_object:get_luaentity().dir
 					data.cabin.elevator_object:remove()
 				else
-					minetest.remove_node(data.floors[data.cabin.cur_elevator_position_index].position or data.cabin.position)
+					dir = minetest.facedir_to_dir(minetest.get_node(pos).param2)
+					minetest.remove_node(pos)
 				end
-				local falling_cabin = minetest.add_entity(pos, "real_elevators:elevator_cabin_activated")
+				local falling_cabin = elevators.set_cabin(pos, dir)
 				falling_cabin:set_acceleration({x=0, y=-elevators.settings.GRAVITY, z=0})
 				falling_cabin:get_luaentity().is_falling = true
 			elseif state == 2 then
