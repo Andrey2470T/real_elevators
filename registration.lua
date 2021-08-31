@@ -1,5 +1,6 @@
--- Registration function.
--- Registers all necessary parts for building shaft for elevator. The outer doors and the cabin are registered separately.
+-- MINETEST REGISTRATION FUNCTIONS CALLS.
+-- ==================================================================
+
 
 local tex_names_used = {
 	"real_elevators_shaft_back_block.png",
@@ -388,7 +389,8 @@ minetest.register_node("real_elevators:elevator_cabin", {
 				cabin = {
 					position = pos,
 					inner_doors = {},
-					queue = {}
+					queue = {},
+					attached_objs = {}
 				}
 			}
 
@@ -470,7 +472,11 @@ minetest.register_node("real_elevators:elevator_cabin", {
 				if fields["floor_" .. tostring(i)] then
 					table.insert(elevators.elevators_nets[net_name].cabin.queue, 1, floor.position)
 
-					elevators.move_doors(net_name, "close")
+					if state == "pending" then
+						local timer = minetest.get_node_timer(pos)
+						timer:stop()
+						elevators.move_doors(net_name, "close")
+					end
 				end
 			end
 		end
@@ -493,7 +499,7 @@ minetest.register_entity("real_elevators:elevator_door_moving", {
 	physical = true,
 	collide_with_objects = true,
 	collisionbox = {-0.25, -0.5, -0.05, 0.25, 1.5, 0.05},
-	pointable = false,
+	pointable = true,
 	textures = {tex_names_used[4]},
 	on_activate = function(self, staticdata, dtime_s)
 		if staticdata ~= "" then
@@ -523,6 +529,7 @@ minetest.register_entity("real_elevators:elevator_door_moving", {
 	end,
 	on_step = function(self, dtime, moveresult)
 		if not self.end_pos then
+			self.object:set_velocity(vector.new())
 			return
 		else
 			if vector.length(self.object:get_velocity()) == 0 then

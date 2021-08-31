@@ -11,3 +11,7 @@ real_elevators_max_rope_length (Maximum rope length) int 500 0 5000
 #    Gravity acceleration factor of cabin when its rope is intercepted.
 #    Should be positive!
 real_elevators_gravity (Gravity) float 9.8 0.0 100.0
+
+#    Time of cabin being in 'pending' state (in seconds).
+#    It defines that how long elevator cabin will be waiting for coming objects in it to attach them afterwards.
+real_elevators_pending_time (Pending time) float 10.0 0.0 50.0
