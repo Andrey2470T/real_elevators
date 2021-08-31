@@ -5,6 +5,7 @@ Adds realistic elevators with smooth moving.
 
 ## Features:
 * Flexible & dynamic floors net system.
+* Cabin hangs on rope.
 * Smooth moving of elevator cabin from one point to other.
 * Smooth opening/closing doors (outer/inner).
 * Allows to transport all entities (not only players).
