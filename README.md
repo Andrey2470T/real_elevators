@@ -1,7 +1,7 @@
-# real_elevators v1.0
+# real_elevators v1.0.0
 ![screenshot](https://user-images.githubusercontent.com/25750346/131409658-5a4be9cc-19b2-4b76-8922-a67887f8b64f.png)
 
-The elevators with a real behaviour.
+Adds realistic elevators with smooth moving.
 
 ## Features:
 * Flexible & dynamic floors net system.
@@ -43,4 +43,4 @@ default, farming, stairs, basic_materials.
 MIT (Code and media).
 
 ## Mod verison:
-1.0.
+1.0.0.
