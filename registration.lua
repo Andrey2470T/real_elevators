@@ -366,7 +366,7 @@ minetest.register_node("real_elevators:elevator_cabin", {
 		local net_name = minetest.get_meta(pos):get_string("elevator_net_name")
 
 		if net_name ~= "" then
-			minetest.debug("Closing doors...")
+			--minetest.debug("Closing doors...")
 			elevators.move_doors(net_name, "close")
 		end
 	end,
@@ -376,7 +376,7 @@ minetest.register_node("real_elevators:elevator_cabin", {
 		end
 
 		if fields.elevator_net_name_enter then
-			if #fields.elevator_net_name == 0 then
+			if fields.elevator_net_name == "" then
 				minetest.chat_send_player(sender:get_player_name(), "The elevator net name can not be empty!")
 				return
 			end
@@ -507,7 +507,9 @@ minetest.register_entity("real_elevators:elevator_door_moving", {
 		end
 
 		local pos = self.object:get_pos()
+		--minetest.debug("pos: " .. dump(pos))
 		for name, data in pairs(elevators.elevators_nets) do
+			--minetest.debug("data.cabin.inner_doors: " .. dump(data.cabin.inner_doors))
 			if type(data.cabin.inner_doors.left) == "table" and vector.equals(data.cabin.inner_doors.left, pos) then
 				data.cabin.inner_doors.left = self.object
 				break
@@ -516,6 +518,7 @@ minetest.register_entity("real_elevators:elevator_door_moving", {
 				break
 			end
 
+			--minetest.debug("data.outer_doors: " .. dump(data.outer_doors))
 			if data.outer_doors then
 				if type(data.outer_doors.left) == "table" and vector.equals(data.outer_doors.left, pos) then
 					data.outer_doors.left = self.object
@@ -573,12 +576,32 @@ minetest.register_entity("real_elevators:elevator_cabin_activated", {
 			self.is_falling = data[4]
 		end
 
-		for name, data in pairs(elevators.elevators_nets) do
-			if type(data.cabin.elevator_object) == "table" and vector.equals(data.cabin.elevator_object, self.object:get_pos()) then
-				data.cabin.elevator_object = self.object
-				break
+		if not self.elevator_net_name then
+			return
+		end
+
+		local net = elevators.elevators_nets[self.elevator_net_name]
+
+		local pos = self.object:get_pos()
+		if type(net.cabin.elevator_object) == "table" and vector.equals(net.cabin.elevator_object, pos) then
+			net.cabin.elevator_object = self.object
+
+			for i, obj in ipairs(net.cabin.attached_objs) do
+				if obj:is_player() then
+					if elevators.is_player_online(obj) then
+						obj:set_attach(self.object, "", vector.multiply(vector.subtract(obj:get_pos(), pos), 10))
+					else
+						obj = nil
+					end
+				elseif obj:get_luaentity() then
+					obj:set_attach(self.object, "", vector.multiply(vector.subtract(obj:get_pos(), pos), 10))
+				else
+					obj = nil
+				end
 			end
 		end
+
+		--minetest.debug("[on_activate()] " .. self.elevator_net_name .. ": " .. dump(elevators.elevators_nets[self.elevator_net_name]))
 	end,
 	on_step = function(self, dtime, moveresult)
 		if not self.end_pos or self.is_falling then
@@ -586,27 +609,51 @@ minetest.register_entity("real_elevators:elevator_cabin_activated", {
 		end
 
 		local pos = self.object:get_pos()
+
+		-- Update rope
+		minetest.remove_node({x=pos.x, y=pos.y+1, z=pos.z})
+
+		local top_pos = {x=pos.x, y=pos.y+2, z=pos.z}
+		local top_node = minetest.get_node(top_pos)
+
+		if top_node.name == "real_elevators:elevator_winch" then
+			if vector.direction(pos, top_pos) == vector.normalize(self.object:get_velocity()) then
+				-- The cabin can not move up as on the top of it there is a winch impeding!
+				self.object:set_velocity(vector.new())
+				self.end_pos = nil
+				return
+			end
+		else
+			minetest.set_node({x=pos.x, y=pos.y+2, z=pos.z}, {name="real_elevators:elevator_rope"})
+		end
+
+		-- Check for shaft nodes availability
 		local is_shaft = elevators.check_for_surrounding_shaft_nodes(pos, self.dir)
 
 		if not is_shaft then
+			-- The cabin can not move further as at its level there are no enough shaft nodes!
+			self.object:set_velocity(vector.new())
+			self.end_pos = nil
 			return
 		end
 
-		minetest.remove_node({x=pos.x, y=pos.y+1, z=pos.z})
+		--minetest.remove_node({x=pos.x, y=pos.y+1, z=pos.z})
 		local dist = vector.distance(pos, self.end_pos)
 
 		if dist < 0.05 then
-			minetest.debug("The cabin is about to stop...")
+			--minetest.debug("The cabin is about to stop...")
+			-- The cabin is arrived!
 			self.object:set_pos(self.end_pos)
 			self.object:set_velocity(vector.new())
 			self.end_pos = nil
 		end
 
-		local top_pos = {x=pos.x, y=pos.y+2, z=pos.z}
+		--[[local top_pos = {x=pos.x, y=pos.y+2, z=pos.z}
 		local top_node = minetest.get_node(top_pos)
 
 		if top_node.name == "real_elevators:elevator_winch" and
 			vector.direction(pos, top_pos) == vector.normalize(self.object:get_velocity()) then
+			-- The cabin can not move up as on the top of it there is a winch impeding!
 			self.object:set_velocity(vector.new())
 			self.end_pos = nil
 			return
@@ -614,24 +661,28 @@ minetest.register_entity("real_elevators:elevator_cabin_activated", {
 
 		if top_node.name ~= "real_elevators:elevator_winch" then
 			minetest.set_node({x=pos.x, y=pos.y+2, z=pos.z}, {name="real_elevators:elevator_rope"})
-		end
+		end]]
 	end,
 	on_deactivate = function(self)
-		minetest.debug("self.elevator_net_name: " .. (self.elevator_net_name ~= nil and self.elevator_net_name or "nil"))
+		minetest.debug("on_deactivate()")
+		--minetest.debug("self.elevator_net_name: " .. (self.elevator_net_name ~= nil and self.elevator_net_name or "nil"))
 		if not self.elevator_net_name then
 			return
 		end
-		local net = elevators.elevators_nets[self.elevator_net_name]
 
-		net.cabin.inner_doors.left:remove()
-		net.cabin.inner_doors.right:remove()
-
-		for i, obj in ipairs(net.cabin.attached_objs) do
-			if obj:get_luaentity() then
-				obj:set_detach()
-			end
+		if self.is_remove then
+			elevators.remove_net(self.elevator_net_name)
+		else
+			elevators.save_entities_positions_in_net(self.elevator_net_name)
 		end
-		net = nil
+	end,
+	on_death = function(self)
+		minetest.debug("on_death()")
+		if not self.elevator_net_name then
+			return
+		end
+
+		elevators.remove_net(self.elevator_net_name)
 	end,
 	get_staticdata = function(self)
 		return minetest.serialize({self.end_pos, self.dir, self.elevator_net_name, self.is_falling})
