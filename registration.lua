@@ -1,5 +1,5 @@
 -- MINETEST REGISTRATION FUNCTIONS CALLS.
--- ==================================================================
+-- ============================================================================
 
 
 local tex_names_used = {
@@ -512,6 +512,10 @@ minetest.register_entity("real_elevators:elevator_door_moving", {
 			--minetest.debug("data.cabin.inner_doors: " .. dump(data.cabin.inner_doors))
 			if type(data.cabin.inner_doors.left) == "table" and vector.equals(data.cabin.inner_doors.left, pos) then
 				data.cabin.inner_doors.left = self.object
+
+				if data.cabin.state == "active" then
+					self.object:set_attach(data.cabin.elevator_object, "", vector.multiply(vector.subtract(data.cabin.elevator_object:get_pos(), pos), 10))
+				end
 				break
 			elseif type(data.cabin.inner_doors.right) == "table" and vector.equals(data.cabin.inner_doors.right, pos) then
 				data.cabin.inner_doors.right = self.object
@@ -568,6 +572,7 @@ minetest.register_entity("real_elevators:elevator_cabin_activated", {
 	textures = {"real_elevators_new_cabin.png"},
 	static_save = true,
 	on_activate = function(self, staticdata, dtime_s)
+		minetest.debug("on_activate()")
 		if staticdata ~= "" then
 			local data = minetest.deserialize(staticdata)
 			self.end_pos = data[1]
@@ -666,7 +671,7 @@ minetest.register_entity("real_elevators:elevator_cabin_activated", {
 	on_deactivate = function(self)
 		minetest.debug("on_deactivate()")
 		--minetest.debug("self.elevator_net_name: " .. (self.elevator_net_name ~= nil and self.elevator_net_name or "nil"))
-		if not self.elevator_net_name then
+		--[[if not self.elevator_net_name then
 			return
 		end
 
@@ -674,7 +679,12 @@ minetest.register_entity("real_elevators:elevator_cabin_activated", {
 			elevators.remove_net(self.elevator_net_name)
 		else
 			elevators.save_entities_positions_in_net(self.elevator_net_name)
+		end]]
+		if not self.elevator_net_name then
+			return
 		end
+
+		elevators.remove_net(self.elevator_net_name)
 	end,
 	on_death = function(self)
 		minetest.debug("on_death()")
@@ -727,4 +737,4 @@ minetest.register_entity("real_elevators:marked_block_area", {
 
 minetest.register_on_shutdown(elevators.on_shutdown)
 minetest.register_globalstep(elevators.global_step)
-minetest.register_on_joinplayer(elevators.on_join)
+--minetest.register_on_joinplayer(elevators.on_join)
