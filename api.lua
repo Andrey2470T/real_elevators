@@ -15,6 +15,9 @@ elevators.doors_states = {
 elevators.current_marked_pos = minetest.deserialize(elevators.mod_storage:get_string("current_marked_pos"))
 elevators.elevators_nets = minetest.deserialize(elevators.mod_storage:get_string("elevators_nets")) or {}
 
+-- Temporary savings of the cabin formspec context. It is used for receiving an input info only after an event is triggered, then deleted.
+elevators.cab_fs_contexts = {}
+
 minetest.debug("Loading mod...")
 minetest.debug("elevators.elevators_nets: " .. dump(elevators.elevators_nets))
 --minetest.debug("elevators.elevators_nets: " .. dump(elevators.elevators_nets))
@@ -26,7 +29,7 @@ minetest.debug("elevators.elevators_nets: " .. dump(elevators.elevators_nets))
 -- 'elevators_nets' is table with data about each elevator net, it contains:
 --		'floors' is table containing data about each floor (number of floor, description, position)
 --		'cabin' is table containing data about the cabin in this net:
---			'position' is temporary position table, it is initialized when a cabin is just set, not a node and doesn't locate on any floor'
+--			'position' is temporary position table, it is initialized when a cabin is just set, not a node and doesn't locate on any floor
 --			'cur_elevator_position_index' contains index of floor inside 'floors' table where the elevator cabin is locating currently (in state of a node)
 --			'elevator_object' is object of elevator cabin (present when its state is 'active')
 --			'inner_doors' is table containing inner left and right door objects.
@@ -259,6 +262,9 @@ elevators.get_net_name_and_floor_index_from_floor_pos = function(pos)
 	return
 end
 
+-- Returns name of the net which the cabin with 'pos' position belongs to.
+-- Params:
+-- *pos* is cabin position
 elevators.get_net_name_from_cabin_pos = function(pos)
 	for name, data in pairs(elevators.elevators_nets) do
 		local cabin_pos = elevators.get_cabin_pos_from_net_name(name)
@@ -270,6 +276,9 @@ elevators.get_net_name_from_cabin_pos = function(pos)
 	return
 end
 
+-- Returns the current position of the cabin of the net with 'net_name' name.
+-- Params:
+-- *net_name* is net name
 elevators.get_cabin_pos_from_net_name = function(net_name)
 	local net = elevators.elevators_nets[net_name]
 
@@ -278,8 +287,6 @@ elevators.get_cabin_pos_from_net_name = function(net_name)
 		pos = net.floors[net.cabin.cur_elevator_position_index].position
 	elseif net.cabin.elevator_object then
 		if type(net.cabin.elevator_object) == "userdata" then
-		--minetest.debug("get_cabin_pos_from_net_name() net.cabin.elevator_object: " .. dump(net.cabin.elevator_object))
-		--minetest.debug("get_cabin_pos_from_net_name() net.cabin.elevator_object:get_luaentity(): " .. dump(net.cabin.elevator_object:get_luaentity()))
 			pos = net.cabin.elevator_object:get_pos()
 		elseif type(net.cabin.elevator_object) == "table" then
 			pos = net.cabin.elevator_object
@@ -319,8 +326,8 @@ elevators.activate = function(net_name, target_pos)
 	end
 
 	local dir = minetest.facedir_to_dir(minetest.get_node(pos).param2)
-	local meta = minetest.get_meta(pos)
-	local formspec = meta:get_string("formspec")
+	--local meta = minetest.get_meta(pos)
+	--local formspec = meta:get_string("formspec")
 	minetest.debug("net.cabin.inner_doors(1): " .. dump(net.cabin.inner_doors))
 	local is_ldoor_inner, is_rdoor_inner = net.cabin.inner_doors.left:get_luaentity() ~= nil, net.cabin.inner_doors.right:get_luaentity() ~= nil
 	minetest.remove_node(pos)
@@ -343,7 +350,7 @@ elevators.activate = function(net_name, target_pos)
 	net.cabin.cur_elevator_position_index = nil
 	self.end_pos = target_pos
 	net.cabin.elevator_object = cabin_obj
-	net.cabin.formspec = formspec
+	--net.cabin.formspec = formspec
 	net.cabin.state = "active"
 	self.dir = dir
 
@@ -408,7 +415,7 @@ elevators.deactivate = function(net_name)
 	net.cabin.inner_doors.right = is_rdoor_inner and right_door or net.cabin.inner_doors.right
 	table.remove(net.cabin.queue, 1)
 
-	minetest.get_meta(pos):set_string("elevator_net_name", net_name)
+	--minetest.get_meta(pos):set_string("elevator_net_name", net_name)
 
 	if floor_i then
 		local trigger_pos = vector.add(pos, vector.add(vector.add(vector.multiply(dir, -1), vector.new(0, 1, 0)), vector.rotate_around_axis(dir, vector.new(0, 1, 0), math.pi/2)))
@@ -441,7 +448,7 @@ elevators.return_actual_node_pos = function(pos)
 end
 
 
-elevators.update_cabins_formspecs = function()
+--[[elevators.update_cabins_formspecs = function()
 	for name, data in pairs(elevators.elevators_nets) do
 		if data.cabin.state == "active" then
 			data.cabin.formspec = elevators.get_floor_list_formspec(name)
@@ -454,7 +461,7 @@ elevators.update_cabins_formspecs = function()
 			end
 		end
 	end
-end
+end]]
 
 -- Checks for availability of surrounding shaft nodes (having 'shaft=1' group) and also checks for their proper orientation (should face towards to the cabin). Returns true if success, otherwise false.
 -- Params:
@@ -599,10 +606,72 @@ end
 -- Formspec
 -- ============================================================================
 
+-- Shows the current formspec for the player with "playername" name. If the context is not set for him or no the context of the cabin, then create it.
+elevators.show_formspec = function(net_name, playername)
+	local pl_context = elevators.cab_fs_contexts[playername]
+
+	if not pl_context then
+		elevators.cab_fs_contexts[playername] = {}
+		pl_context = elevators.cab_fs_contexts[playername]
+	end
+
+	local fs
+	local fs_name
+	if not pl_context[net_name] then
+		if #elevators.elevators_nets[net_name].floors == 0 then
+			fs = elevators.get_add_floor_formspec()
+			fs_name = "real_elevators:add_floor"
+		else
+			fs = elevators.get_floor_list_formspec(net_name)
+			fs_name = "real_elevators:floors_list"
+		end
+		pl_context[net_name] = {
+			cur_formspec_name = fs_name,
+			cur_formspec_str = fs,
+			sel_floors_ind = {}
+		}
+	else
+		fs_name = pl_context[net_name].cur_formspec_name
+		fs = pl_context[net_name].cur_formspec_str
+	end
+	-- Formspec of which elevator net is currently opened?
+	pl_context.cur_opened_fs_el_net = net_name
+	minetest.show_formspec(playername, fs_name, fs)
+end
+
+-- Switches the current formspec of the player to other with "fs_name" name. Also it is used to update the form of the current formspec.
+elevators.switch_formspec = function(net_name, playername, fs, fs_name)
+	local net_context = elevators.cab_fs_contexts[playername][net_name]
+
+	net_context.cur_formspec_name = "real_elevators:" .. fs_name
+	net_context.cur_formspec_str = fs
+end
+
+-- Updates the same opened formspecs for each player. If "is_close" == true, it closes opened forms of each player.
+-- When necessary to update: adding/deleting floor in the floors list, probably in some other cases.
+elevators.update_formspec_to_all_viewers = function(net_name, fs, fs_name, is_close)
+	for pl_name, context in pairs(elevators.cab_fs_contexts) do
+		if context.cur_opened_fs_el_net == net_name then
+			if is_close then
+				minetest.show_formspec(pl_name, "", "")
+				context.cur_opened_fs_el_net = ""
+			else
+				if context[net_name].cur_formspec_name == "real_elevators:floors_list" then
+					elevators.switch_formspec(net_name, pl_name, fs, fs_name)
+					elevators.show_formspec(net_name, pl_name)
+				end
+			end
+		end
+	end
+end
+
 -- Returns form of when player is needed to create new elevator net.
 elevators.get_enter_elevator_net_name_formspec = function()
-	local form = "formspec_version[4]size[6,3]style_type[label;font=normal,bold]label[0.5,0.5;Enter name for new elevator net to create:]" ..
-			"field[2,1;2,0.5;elevator_net_name;;]button[2,2;2,0.5;elevator_net_name_enter;Enter]"
+	local form = [[
+		formspec_version[4]size[6,3]
+		style_type[label;font=normal,bold]label[0.5,0.5;Enter name for new elevator net to create:]
+		field[2,1;2,0.5;elevator_net_name;;]button[2,2;2,0.5;elevator_net_name_enter;Enter]
+	]]
 
 	return form
 end
@@ -611,54 +680,101 @@ end
 elevators.get_add_floor_formspec = function(number, description, position)
 	number = number or 0
 	description = description or ""
-	position = ""
-	local form = "formspec_version[4]size[10,5]style_type[label;font=normal,bold;font_size=*1.5]label[1.5,0.5;Add new floor for the elevator net:]" ..
-			"style_type[label;font_size=]field[0.5,2;1,1;floor_number;Number:;" .. tostring(number)
-			.. "]field[2.5,2;3,1;floor_description;Description:;" .. description .. "]field[6.5,2;2.5,1;floor_pos;Position:;"
+	--position = ""
+	local form = {
+		"formspec_version[4]",
+		"size[10,5]",
+		"style_type[label;font=normal,bold;font_size=*1.5]",
+		"label[1.5,0.5;Add new floor for the elevator net:]",
+		("style_type[label;font_size=]field[0.5,2;1,1;floor_number;Number:;%s]"):format(tostring(number)),
+		("field[2.5,2;3,1;floor_description;Description:;%s]field[6.5,2;2.5,1;floor_pos;Position:;"):format(description)
+	}
 
-	if position ~= "" then
-		form = form .. position .. "]"
-	elseif elevators.current_marked_pos then
-		form = form .. minetest.pos_to_string(elevators.current_marked_pos) .. "]"
+	if not position then
+		if elevators.current_marked_pos then
+			table.insert(form, minetest.pos_to_string(elevators.current_marked_pos) .. "]")
+		else
+			table.insert(form, "]")
+		end
 	else
-		form = form .. "]"
+		table.insert(form, position .. "]")
 	end
+	--[[if position ~= "" then
+		table.insert(form, position .. "]")
+	elseif elevators.current_marked_pos then
+		table.insert(form, minetest.pos_to_string(elevators.current_marked_pos) .. "]")
+	else
+		table.insert(form, "]")
+	end]]
 
-	form = form .. "image_button[0.5,3;0.5,0.5;real_elevators_floor_plus.png;floor_add;]image_button[1,3;0.5,0.5;real_elevators_floor_minus.png;floor_reduce;]button[3.5,3.5;2.5,1;set_floor;Set]"
+	table.insert(form, "image_button[0.5,3;0.5,0.5;real_elevators_floor_plus.png;floor_add;]")
+	table.insert(form, "image_button[1,3;0.5,0.5;real_elevators_floor_minus.png;floor_reduce;]")
+	table.insert(form, "button[1.75,3.5;2.5,1;set_floor;Set]")
+	table.insert(form, "button[5.25,3.5;2.5,1;cancel_floor;Cancel]")
+	--form = form .. "image_button[0.5,3;0.5,0.5;real_elevators_floor_plus.png;floor_add;]image_button[1,3;0.5,0.5;real_elevators_floor_minus.png;floor_reduce;]button[3.5,3.5;2.5,1;set_floor;Set]"
 
-	return form
+	return table.concat(form, "")
 end
 
 -- Returns form of list with all created floors. Allows to be teleported to anything of them on clicking the corresponding floor button.
-elevators.get_floor_list_formspec = function(elevator_net_name)
+elevators.get_floor_list_formspec = function(elevator_net_name)--, selected_floors)
 	local form = {
 		"formspec_version[4]",
 		"size[4,9]",
 		"style_type[label;font=normal,bond]",
 		"label[0.5,0.5;Select a floor to lift to it:]",
 		"style_type[box;bordercolors=dimgray]",
-		"box[1,1;2,6;darkgray]",
-		"scrollbar[3,1;0.2,6;vertical;floor_list_scrollbar;]",
-		"scroll_container[1,1;2,6;floor_list_scrollbar;vertical;1]"
+		"box[1,1;2,6;darkgray]"
 	}
 
 	if elevator_net_name == "" then
 		return
 	end
 
-	local btns_space = 0.25
-	local y_space = 0.25
+	local btns_space = 0.4
+	local y_space = btns_space
 	local button_size = 1
-	for i, floor in ipairs(elevators.elevators_nets[elevator_net_name].floors) do
+	local step_h = 0.1
+
+	local floors = elevators.elevators_nets[elevator_net_name].floors
+	local sc_h
+
+	if #floors <= 4 then
+		sc_h = 6
+	else
+		sc_h = btns_space * (#floors+1) + button_size * #floors
+	end
+	--minetest.debug("sc_h: " .. tostring(sc_h))
+
+	--minetest.debug("steps: " .. tostring(math.floor((sc_h - 6) / step_h / 100)))
+	--local steps_c = (sc_h - 6) / (step_h * 100)
+	local steps_c = (sc_h - 6) / step_h
+	minetest.debug("max: " .. tostring(steps_c))
+	--local steps_c2 = steps_c / 100
+	--minetest.debug("smallstep: " .. tostring(steps_c2))
+	--local steps_c3 = steps_c / 10
+	--minetest.debug("largestep: " .. tostring(steps_c3))
+	table.insert(form, ("scrollbaroptions[min=0;max=%f;smallstep=%f;largestep=%f]"):format(steps_c, steps_c / 7, steps_c / 7))
+	table.insert(form, "scrollbar[3,1;0.2,6;vertical;floor_list_scrollbar;]")
+	table.insert(form, "scroll_container[1,1;2,6;floor_list_scrollbar;vertical;]")
+
+	for i, floor in ipairs(floors) do
 		local but_name = "floor_" .. tostring(i)
-		form[#form+1] = "button[0.5," .. tostring(y_space) .. ";" .. button_size .. "," .. button_size .. ";" .. but_name .. ";" .. floor.number .. "]"
-		form[#form+1] = "tooltip[" .. but_name .. ";Floor #" .. floor.number .. ": \"" .. floor.description .. "\".\nLocates at: " .. minetest.pos_to_string(floor.position) .. "]"
+		local cb_name = "mark_for_del_" .. tostring(i)
+		--local sel_floors_i = selected_floors and table.indexof(selected_floors, i)
+		table.insert(form, ("checkbox[0.3,%f;%s;;false]"):format(y_space+0.5, cb_name))--, sel_floors_i ~= nil and sel_floors_i ~= -1 and "true" or "false"))
+		table.insert(form, ("button[0.7,%f;%f,%f;%s;%u]"):format(y_space, button_size, button_size, but_name, floor.number))
+		table.insert(form, ("tooltip[%s;Floor #%u:%q.\nLocates at: %s]"):format(but_name, floor.number, floor.description, minetest.pos_to_string(floor.position)))
+		--table.insert(form, "checkbox[0.3," .. tostring(y_space+0.5) .. ";" .. cb_name .. ";;" .. (table.indexof(selected_floors, i) or "false") .. "]")
+		--table.insert(form, "button[0.7," .. tostring(y_space) .. ";" .. button_size .. "," .. button_size .. ";" .. but_name .. ";" .. floor.number .. "]")
+		--table.insert(form, "tooltip[" .. but_name .. ";Floor #" .. floor.number .. ": \"" .. floor.description .. "\".\nLocates at: " .. minetest.pos_to_string(floor.position) .. "]")
 
 		y_space = y_space + (button_size + btns_space)
 	end
 
-	form[#form+1] = "scroll_container_end[]"
-	form[#form+1] = "image_button[1.5,7.5;1,1;real_elevators_floor_plus.png;add_floor;]tooltip[add_floor;Add still floors]"
+	table.insert(form, "scroll_container_end[]")
+	table.insert(form, "image_button[0.5,7.5;1,1;real_elevators_floor_plus.png;add_floor;]tooltip[add_floor;Add still floors]")
+	table.insert(form, "image_button[2.5,7.5;1,1;real_elevators_delete_floor.png;delete_floor;]tooltip[delete_floor;Delete selected floors]")
 
 	return table.concat(form, "")
 end
@@ -777,6 +893,136 @@ elevators.on_shutdown = function()
 	elevators.mod_storage:set_string("current_marked_pos", minetest.serialize(elevators.current_marked_pos))
 end
 
+elevators.on_receive_fields = function(player, formname, fields)
+	if formname ~= "real_elevators:add_floor" and formname ~= "real_elevators:floors_list" then
+		return
+	end
+
+	local pl_name = player:get_player_name()
+	local net_name =  elevators.cab_fs_contexts[pl_name].cur_opened_fs_el_net
+
+	if fields.quit then
+		elevators.cab_fs_contexts[pl_name].cur_opened_fs_el_net = ""
+		return
+	end
+
+	if fields.set_floor then
+		if fields.floor_number == "" or not tonumber(fields.floor_number) then
+			minetest.chat_send_player(pl_name, "The floor number must be set!")
+			return
+		end
+
+		local floor_pos = minetest.string_to_pos(fields.floor_pos)
+
+		if not floor_pos then
+			minetest.chat_send_player(pl_name, "The floor position must be set!")
+			return
+		end
+
+		for i, floor in ipairs(elevators.elevators_nets[net_name].floors) do
+			if floor.number == fields.floor_number then
+				minetest.chat_send_player(pl_name, "There is already the floor with such number in this elevator net!")
+				return
+			end
+			if vector.equals(floor.position, floor_pos) then
+				minetest.chat_send_player(pl_name, "There is already the floor with such position in this elevator net!")
+				return
+			end
+		end
+
+		-- In future, probably horizontally moving elevators will be added, but for now only vertically
+		local pos = elevators.get_cabin_pos_from_net_name(net_name)
+		if pos.x ~= floor_pos.x or pos.z ~= floor_pos.z then
+			minetest.chat_send_player(pl_name, "You can not add floor with position that is not aligned with the elevator cabin position along Y axis!")
+			return
+		end
+		--elevators.elevators_nets[elevator_net_name].floors[#elevators.elevators_nets[elevator_net_name].floors+1] = {}
+		table.insert(elevators.elevators_nets[net_name].floors, {})
+		local new_floor = elevators.elevators_nets[net_name].floors[#elevators.elevators_nets[net_name].floors]
+		new_floor.number = fields.floor_number
+		new_floor.description = fields.floor_description
+		new_floor.position = floor_pos
+
+		local fs, fs_name = elevators.get_floor_list_formspec(net_name), "floors_list"
+		elevators.switch_formspec(net_name, pl_name, fs, fs_name)
+		elevators.show_formspec(net_name, pl_name)
+		elevators.update_formspec_to_all_viewers(net_name, fs, fs_name, false)
+
+		--meta:set_string("formspec", elevators.get_floor_list_formspec(net_name))
+	end
+
+	if fields.cancel_floor then
+		elevators.switch_formspec(net_name, pl_name, elevators.get_floor_list_formspec(net_name), "floors_list")
+		elevators.show_formspec(net_name, pl_name)
+		--meta:set_string("formspec", elevators.get_floor_list_formspec(net_name))
+	end
+
+	if fields.add_floor then
+		elevators.switch_formspec(net_name, pl_name, elevators.get_add_floor_formspec(), "add_floor")
+		elevators.show_formspec(net_name, pl_name)
+		--meta:set_string("formspec", elevators.get_add_floor_formspec())
+	end
+
+	if fields.floor_add and fields.floor_number ~= "" then
+		elevators.switch_formspec(net_name, pl_name, elevators.get_add_floor_formspec(tonumber(fields.floor_number)+1, fields.floor_description, fields.floor_pos), "add_floor")
+		elevators.show_formspec(net_name, pl_name)
+		--meta:set_string("formspec", elevators.get_add_floor_formspec(tonumber(fields.floor_number)+1, fields.floor_description, fields.floor_pos))
+	end
+
+	if fields.floor_reduce and fields.floor_number ~= "" then
+		elevators.switch_formspec(net_name, pl_name, elevators.get_add_floor_formspec(tonumber(fields.floor_number)-1, fields.floor_description, fields.floor_pos), "add_floor")
+		elevators.show_formspec(net_name, pl_name)
+		--meta:set_string("formspec", elevators.get_add_floor_formspec(tonumber(fields.floor_number)-1, fields.floor_description, fields.floor_pos))
+	end
+
+	if fields.delete_floor then
+		if #elevators.cab_fs_contexts[pl_name][net_name].sel_floors_ind > 0 then
+			local new_floors = {}
+			for i, floor in ipairs(elevators.elevators_nets[net_name].floors) do
+				if table.indexof(elevators.cab_fs_contexts[pl_name][net_name].sel_floors_ind, i) == -1 then
+					table.insert(new_floors, floor)
+				end
+			end
+
+			elevators.elevators_nets[net_name].floors = new_floors
+			elevators.cab_fs_contexts[pl_name][net_name].sel_floors_ind = {}
+		end
+
+		local fs, fs_name = elevators.get_floor_list_formspec(net_name), "floors_list"
+		elevators.switch_formspec(net_name, pl_name, fs, fs_name)
+		elevators.show_formspec(net_name, pl_name)
+		elevators.update_formspec_to_all_viewers(net_name, fs, fs_name, false)
+		--meta:set_string("formspec", elevators.get_floor_list_formspec(net_name))
+	end
+
+	local state = elevators.elevators_nets[net_name].cabin.state
+	for i, floor in ipairs(elevators.elevators_nets[net_name].floors) do
+		if net_name ~= "" and (state == "pending" or state == "idle") then
+			if fields["floor_" .. tostring(i)] then
+				table.insert(elevators.elevators_nets[net_name].cabin.queue, 1, floor.position)
+
+				if state == "pending" then
+					local timer = minetest.get_node_timer(pos)
+					timer:stop()
+					elevators.move_doors(net_name, "close")
+				end
+			end
+		end
+		local is_sel = fields["mark_for_del_" .. tostring(i)]
+		minetest.debug("is_sel_" .. tostring(i) .. ": " .. tostring(is_sel))
+		if is_sel then
+			local cabin_context = elevators.cab_fs_contexts[pl_name][net_name]
+			if is_sel == "true" then
+				table.insert(cabin_context.sel_floors_ind, i)
+			else
+				minetest.debug("sel_floors_ind:" .. dump(cabin_context.sel_floors_ind))
+				table.remove(cabin_context.sel_floors_ind, table.indexof(cabin_context.sel_floors_ind, i))
+				minetest.debug("sel_floors_ind:" .. dump(cabin_context.sel_floors_ind))
+			end
+			--meta:set_string("formspec", elevators.get_floor_list_formspec(net_name, cabin_context.sel_floors_ind))
+		end
+	end
+end
 --[[elevators.on_join = function(player)
 	for name, data in pairs(elevators.elevators_nets) do
 		for i, pos in ipairs(data.cabin.attached_objs) do
@@ -809,6 +1055,9 @@ elevators.remove_net = function(net_name)
 		end
 	end
 
+	for pl_name, context in pairs(elevators.cab_fs_contexts) do
+		context[net_name] = nil
+	end
 	net = nil
 	elevators.elevators_nets[net_name] = nil
 end

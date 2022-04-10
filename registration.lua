@@ -334,8 +334,25 @@ minetest.register_node("real_elevators:elevator_cabin", {
 		local net_name = elevators.get_net_name_from_cabin_pos(pos)
 
 		local meta = minetest.get_meta(pos)
-		--meta:set_string("state", "idle")
-		meta:set_string("formspec", net_name and elevators.elevators_nets[net_name].cabin.formspec or elevators.get_enter_elevator_net_name_formspec())
+		meta:set_string("state", "idle")
+
+		if not net_name then
+			meta:set_string("formspec", elevators.get_enter_elevator_net_name_formspec())--net_name and elevators.elevators_nets[net_name].cabin.formspec or elevators.get_enter_elevator_net_name_formspec())
+		end
+	end,
+	on_rightclick = function(pos, node, clicker, itemstack, pointed_thing)
+		local net_name = elevators.get_net_name_from_cabin_pos(pos)
+
+		if not net_name then
+			return
+		end
+
+		local pl_name =  clicker:get_player_name()
+		if elevators.cab_fs_contexts[pl_name] and elevators.cab_fs_contexts[pl_name][net_name] and
+			elevators.cab_fs_contexts[pl_name][net_name].cur_formspec_name == "real_elevators:add_floor" then
+				elevators.switch_formspec(net_name, pl_name, elevators.get_add_floor_formspec(), "add_floor")
+		end
+		elevators.show_formspec(net_name, clicker:get_player_name())
 	end,
 	after_place_node = function(pos, placer, itemstack, pointed_thing)
 		local node = minetest.get_node(pos)
@@ -355,15 +372,17 @@ minetest.register_node("real_elevators:elevator_cabin", {
 		return
 	end,
 	on_destruct = function(pos)
-		local net_name = minetest.get_meta(pos):get_string("elevator_net_name")
+		local net_name = elevators.get_net_name_from_cabin_pos(pos)
 		if net_name ~= "" then
-			elevators.elevators_nets[net_name].cabin.inner_doors.left:remove()
-			elevators.elevators_nets[net_name].cabin.inner_doors.right:remove()
-			elevators.elevators_nets[net_name] = nil
+			elevators.update_formspec_to_all_viewers(net_name, nil, nil, true)
+			elevators.remove_net(net_name)
+			--elevators.elevators_nets[net_name].cabin.inner_doors.left:remove()
+			--elevators.elevators_nets[net_name].cabin.inner_doors.right:remove()
+			--elevators.elevators_nets[net_name] = nil
 		end
 	end,
 	on_timer = function(pos, elapsed)
-		local net_name = minetest.get_meta(pos):get_string("elevator_net_name")
+		local net_name = elevators.get_net_name_from_cabin_pos(pos)
 
 		if net_name ~= "" then
 			--minetest.debug("Closing doors...")
@@ -375,13 +394,15 @@ minetest.register_node("real_elevators:elevator_cabin", {
 			return
 		end
 
+		local meta = minetest.get_meta(pos)
+		local pl_name = sender:get_player_name()
 		if fields.elevator_net_name_enter then
 			if fields.elevator_net_name == "" then
-				minetest.chat_send_player(sender:get_player_name(), "The elevator net name can not be empty!")
+				minetest.chat_send_player(pl_name, "The elevator net name can not be empty!")
 				return
 			end
 			if elevators.elevators_nets[fields.elevator_net_name] then
-				minetest.chat_send_player(sender:get_player_name(), "This elevator net name already exists!")
+				minetest.chat_send_player(pl_name, "This elevator net name already exists!")
 				return
 			end
 			elevators.elevators_nets[fields.elevator_net_name] = {
@@ -394,91 +415,28 @@ minetest.register_node("real_elevators:elevator_cabin", {
 				}
 			}
 
+			--[[if not elevators.cab_fs_contexts[pl_name] then
+				elevators.cab_fs_contexts[pl_name] = {}
+			end]]
+
+			-- Temporary savings of the cabin formspec context. It is used for receiving an input info only after an event is triggered, then deleted.
+			--[[elevators.cab_fs_contexts[pl_name][fields.elevator_net_name] = {
+				cur_formspec_name = "add_floor",
+				cur_formspec_str = "",]]
+				-- Saves indices of the 'floors' table of the selected floors
+			--	sel_floors_ind = {}
+			--}
+
 			local left_door, right_door = elevators.set_doors(pos, minetest.facedir_to_dir(minetest.get_node(pos).param2), -0.45, 0.25)
 			elevators.elevators_nets[fields.elevator_net_name].cabin.inner_doors.left = left_door
             elevators.elevators_nets[fields.elevator_net_name].cabin.inner_doors.right = right_door
 
 			elevators.elevators_nets[fields.elevator_net_name].cabin.state = "idle"
-			local meta = minetest.get_meta(pos)
-			meta:set_string("elevator_net_name", fields.elevator_net_name)
-			meta:set_string("formspec", elevators.get_add_floor_formspec())
-		end
+			--meta:set_string("elevator_net_name", fields.elevator_net_name)
+			meta:set_string("formspec", "")
+			minetest.after(0.1, elevators.show_formspec, fields.elevator_net_name, pl_name)
 
-		if fields.set_floor then
-			if fields.floor_number == "" then
-				minetest.chat_send_player(sender:get_player_name(), "The floor number must be set!")
-				return
-			end
-
-			local floor_pos = minetest.string_to_pos(fields.floor_pos)
-
-			if not floor_pos then
-				if elevators.current_marked_pos then
-					floor_pos = elevators.current_marked_pos
-				else
-					minetest.chat_send_player(sender:get_player_name(), "The floor position must be set!")
-				end
-				return
-			end
-
-			local elevator_net_name = minetest.get_meta(pos):get_string("elevator_net_name")
-
-			for i, floor in ipairs(elevators.elevators_nets[elevator_net_name].floors) do
-				if floor.number == fields.floor_number then
-					minetest.chat_send_player(sender:get_player_name(), "There is already the floor with such number in this elevator net!")
-					return
-				end
-				if vector.equals(floor.position, floor_pos) then
-					minetest.chat_send_player(sender:get_player_name(), "There is already the floor with such position in this elevator net!")
-					return
-				end
-			end
-
-			-- In future, probably horizontally moving elevators will be added, but for now only vertically
-			if pos.x ~= floor_pos.x or pos.z ~= floor_pos.z then
-				minetest.chat_send_player(sender:get_player_name(), "You can not add floor with position that is not aligned with the elevator cabin position along Y axis!")
-				return
-			end
-			elevators.elevators_nets[elevator_net_name].floors[#elevators.elevators_nets[elevator_net_name].floors+1] = {}
-			local new_floor = elevators.elevators_nets[elevator_net_name].floors[#elevators.elevators_nets[elevator_net_name].floors]
-			new_floor.number = fields.floor_number
-            new_floor.description = fields.floor_description
-			new_floor.position = floor_pos
-
-			local meta = minetest.get_meta(pos)
-			meta:set_string("formspec", elevators.get_floor_list_formspec(elevator_net_name))
-		end
-
-		if fields.add_floor then
-			local meta = minetest.get_meta(pos)
-			meta:set_string("formspec", elevators.get_add_floor_formspec())
-		end
-
-		if fields.floor_add and fields.floor_number ~= "" then
-			local meta = minetest.get_meta(pos)
-			meta:set_string("formspec", elevators.get_add_floor_formspec(tonumber(fields.floor_number)+1, fields.floor_description, fields.floor_pos))
-		end
-
-		if fields.floor_reduce and fields.floor_number ~= "" then
-			local meta = minetest.get_meta(pos)
-			meta:set_string("formspec", elevators.get_add_floor_formspec(tonumber(fields.floor_number)-1, fields.floor_description, fields.floor_pos))
-		end
-
-		local net_name = minetest.get_meta(pos):get_string("elevator_net_name")
-
-		local state = elevators.elevators_nets[net_name].cabin.state
-		if net_name ~= "" and (state == "pending" or state == "idle") then
-			for i, floor in ipairs(elevators.elevators_nets[net_name].floors) do
-				if fields["floor_" .. tostring(i)] then
-					table.insert(elevators.elevators_nets[net_name].cabin.queue, 1, floor.position)
-
-					if state == "pending" then
-						local timer = minetest.get_node_timer(pos)
-						timer:stop()
-						elevators.move_doors(net_name, "close")
-					end
-				end
-			end
+			--meta:set_string("formspec", elevators.get_add_floor_formspec())
 		end
 	end
 })
@@ -715,8 +673,7 @@ minetest.register_tool("real_elevators:floor_mark_tool", {
 
 		minetest.chat_send_player(placer:get_player_name(), "You marked block area at position: " .. minetest.pos_to_string(pointed_thing.under) .. ". Set as current one.")
 		minetest.add_entity(pointed_thing.under, "real_elevators:marked_block_area")
-
-		elevators.update_cabins_formspecs()
+		--elevators.update_cabins_formspecs()
 	end
 })
 
@@ -737,4 +694,5 @@ minetest.register_entity("real_elevators:marked_block_area", {
 
 minetest.register_on_shutdown(elevators.on_shutdown)
 minetest.register_globalstep(elevators.global_step)
+minetest.register_on_player_receive_fields(elevators.on_receive_fields)
 --minetest.register_on_joinplayer(elevators.on_join)
