@@ -376,9 +376,6 @@ minetest.register_node("real_elevators:elevator_cabin", {
 		if net_name ~= "" then
 			elevators.update_formspec_to_all_viewers(net_name, nil, nil, true)
 			elevators.remove_net(net_name)
-			--elevators.elevators_nets[net_name].cabin.inner_doors.left:remove()
-			--elevators.elevators_nets[net_name].cabin.inner_doors.right:remove()
-			--elevators.elevators_nets[net_name] = nil
 		end
 	end,
 	on_timer = function(pos, elapsed)
@@ -397,46 +394,7 @@ minetest.register_node("real_elevators:elevator_cabin", {
 		local meta = minetest.get_meta(pos)
 		local pl_name = sender:get_player_name()
 		if fields.elevator_net_name_enter then
-			if fields.elevator_net_name == "" then
-				minetest.chat_send_player(pl_name, "The elevator net name can not be empty!")
-				return
-			end
-			if elevators.elevators_nets[fields.elevator_net_name] then
-				minetest.chat_send_player(pl_name, "This elevator net name already exists!")
-				return
-			end
-			elevators.elevators_nets[fields.elevator_net_name] = {
-				floors = {},
-				cabin = {
-					position = pos,
-					inner_doors = {},
-					queue = {},
-					attached_objs = {}
-				}
-			}
-
-			--[[if not elevators.cab_fs_contexts[pl_name] then
-				elevators.cab_fs_contexts[pl_name] = {}
-			end]]
-
-			-- Temporary savings of the cabin formspec context. It is used for receiving an input info only after an event is triggered, then deleted.
-			--[[elevators.cab_fs_contexts[pl_name][fields.elevator_net_name] = {
-				cur_formspec_name = "add_floor",
-				cur_formspec_str = "",]]
-				-- Saves indices of the 'floors' table of the selected floors
-			--	sel_floors_ind = {}
-			--}
-
-			local left_door, right_door = elevators.set_doors(pos, minetest.facedir_to_dir(minetest.get_node(pos).param2), -0.45, 0.25)
-			elevators.elevators_nets[fields.elevator_net_name].cabin.inner_doors.left = left_door
-            elevators.elevators_nets[fields.elevator_net_name].cabin.inner_doors.right = right_door
-
-			elevators.elevators_nets[fields.elevator_net_name].cabin.state = "idle"
-			--meta:set_string("elevator_net_name", fields.elevator_net_name)
-			meta:set_string("formspec", "")
-			minetest.after(0.1, elevators.show_formspec, fields.elevator_net_name, pl_name)
-
-			--meta:set_string("formspec", elevators.get_add_floor_formspec())
+			elevators.create_net(fields.elevator_net_name, pl_name, pos)
 		end
 	end
 })
@@ -536,7 +494,7 @@ minetest.register_entity("real_elevators:elevator_cabin_activated", {
 			self.end_pos = data[1]
 			self.dir = data[2]
 			self.elevator_net_name = data[3]
-			self.is_falling = data[4]
+			self.status = data[4]
 		end
 
 		if not self.elevator_net_name then
@@ -549,7 +507,7 @@ minetest.register_entity("real_elevators:elevator_cabin_activated", {
 		if type(net.cabin.elevator_object) == "table" and vector.equals(net.cabin.elevator_object, pos) then
 			net.cabin.elevator_object = self.object
 
-			for i, obj in ipairs(net.cabin.attached_objs) do
+			--[[for i, obj in ipairs(net.cabin.attached_objs) do
 				if obj:is_player() then
 					if elevators.is_player_online(obj) then
 						obj:set_attach(self.object, "", vector.multiply(vector.subtract(obj:get_pos(), pos), 10))
@@ -561,33 +519,33 @@ minetest.register_entity("real_elevators:elevator_cabin_activated", {
 				else
 					obj = nil
 				end
-			end
+			end]]
 		end
 
 		--minetest.debug("[on_activate()] " .. self.elevator_net_name .. ": " .. dump(elevators.elevators_nets[self.elevator_net_name]))
 	end,
 	on_step = function(self, dtime, moveresult)
-		if not self.end_pos or self.is_falling then
+		--[[ 'self.status' can have the following values:
+			"arrived" - if the cabin has arrived to the necessary floor
+			"stopped" - if the cabin has not arrived yet and can not continue moving (the shaft is built wrong/nodes blocking the moving up or down)
+			"disrupted" - if the cabin is disrupted from the rope and fell down
+		]]
+
+		if not self.end_pos then
 			return
 		end
 
 		local pos = self.object:get_pos()
 
 		-- Update rope
-		minetest.remove_node({x=pos.x, y=pos.y+1, z=pos.z})
+		local above_pos = {x=pos.x, y=pos.y+1, z=pos.z}
+		if minetest.get_node(above_pos).name == "real_elevators:elevator_rope" then
+			minetest.remove_node(above_pos)
+		end
 
-		local top_pos = {x=pos.x, y=pos.y+2, z=pos.z}
-		local top_node = minetest.get_node(top_pos)
-
-		if top_node.name == "real_elevators:elevator_winch" then
-			if vector.direction(pos, top_pos) == vector.normalize(self.object:get_velocity()) then
-				-- The cabin can not move up as on the top of it there is a winch impeding!
-				self.object:set_velocity(vector.new())
-				self.end_pos = nil
-				return
-			end
-		else
-			minetest.set_node({x=pos.x, y=pos.y+2, z=pos.z}, {name="real_elevators:elevator_rope"})
+		local up_pos = {x=pos.x, y=pos.y+2, z=pos.z}
+		if minetest.get_node(up_pos).name ~= "real_elevators:elevator_winch" then
+			minetest.set_node(up_pos, {name="real_elevators:elevator_rope"})
 		end
 
 		-- Check for shaft nodes availability
@@ -597,10 +555,10 @@ minetest.register_entity("real_elevators:elevator_cabin_activated", {
 			-- The cabin can not move further as at its level there are no enough shaft nodes!
 			self.object:set_velocity(vector.new())
 			self.end_pos = nil
+			self.status = "stopped"
 			return
 		end
 
-		--minetest.remove_node({x=pos.x, y=pos.y+1, z=pos.z})
 		local dist = vector.distance(pos, self.end_pos)
 
 		if dist < 0.05 then
@@ -609,22 +567,17 @@ minetest.register_entity("real_elevators:elevator_cabin_activated", {
 			self.object:set_pos(self.end_pos)
 			self.object:set_velocity(vector.new())
 			self.end_pos = nil
-		end
-
-		--[[local top_pos = {x=pos.x, y=pos.y+2, z=pos.z}
-		local top_node = minetest.get_node(top_pos)
-
-		if top_node.name == "real_elevators:elevator_winch" and
-			vector.direction(pos, top_pos) == vector.normalize(self.object:get_velocity()) then
-			-- The cabin can not move up as on the top of it there is a winch impeding!
-			self.object:set_velocity(vector.new())
-			self.end_pos = nil
+			self.status = "arrived"
 			return
 		end
 
-		if top_node.name ~= "real_elevators:elevator_winch" then
-			minetest.set_node({x=pos.x, y=pos.y+2, z=pos.z}, {name="real_elevators:elevator_rope"})
-		end]]
+		local cur_vel = self.object:get_velocity()
+
+		if vector.length(cur_vel) == 0 then
+			--self.object:set_velocity(vector.new())
+			self.end_pos = nil
+			self.status = "stopped"
+		end
 	end,
 	on_deactivate = function(self)
 		minetest.debug("on_deactivate()")
@@ -653,7 +606,7 @@ minetest.register_entity("real_elevators:elevator_cabin_activated", {
 		elevators.remove_net(self.elevator_net_name)
 	end,
 	get_staticdata = function(self)
-		return minetest.serialize({self.end_pos, self.dir, self.elevator_net_name, self.is_falling})
+		return minetest.serialize({self.end_pos, self.dir, self.elevator_net_name, self.status})
 	end
 })
 
@@ -692,7 +645,25 @@ minetest.register_entity("real_elevators:marked_block_area", {
 	}
 })
 
+minetest.register_node("real_elevators:light", {
+	drawtype = "airlike",
+	description = "Light",
+	groups = {not_in_creative_inventory=1},
+	paramtype = "light",
+	sunlight_propagates = true,
+	collision_box = {
+		type = "fixed",
+		fixed =  {0, 0, 0, 0, 0, 0}
+	},
+	selection_box = {
+		type = "fixed",
+		fixed = {0, 0, 0, 0, 0, 0}
+	},
+	light_source = 14
+})
+
 minetest.register_on_shutdown(elevators.on_shutdown)
 minetest.register_globalstep(elevators.global_step)
 minetest.register_on_player_receive_fields(elevators.on_receive_fields)
+minetest.register_on_leaveplayer(elevators.on_leaveplayer)
 --minetest.register_on_joinplayer(elevators.on_join)
