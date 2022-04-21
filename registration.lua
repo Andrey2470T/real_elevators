@@ -537,21 +537,11 @@ minetest.register_entity("real_elevators:elevator_cabin_activated", {
 
 		local pos = self.object:get_pos()
 
-		-- Update rope
-		local above_pos = {x=pos.x, y=pos.y+1, z=pos.z}
-		if minetest.get_node(above_pos).name == "real_elevators:elevator_rope" then
-			minetest.remove_node(above_pos)
-		end
-
-		local up_pos = {x=pos.x, y=pos.y+2, z=pos.z}
-		if minetest.get_node(up_pos).name ~= "real_elevators:elevator_winch" then
-			minetest.set_node(up_pos, {name="real_elevators:elevator_rope"})
-		end
-
 		-- Check for shaft nodes availability
-		local is_shaft = elevators.check_for_surrounding_shaft_nodes(pos, self.dir)
+		local is_shaft = elevators.check_for_surrounding_shaft_nodes(elevators.get_centre_y_pos_from_node_pos(pos), self.dir)
 
 		if not is_shaft then
+			minetest.debug("1")
 			-- The cabin can not move further as at its level there are no enough shaft nodes!
 			self.object:set_velocity(vector.new())
 			self.end_pos = nil
@@ -562,6 +552,7 @@ minetest.register_entity("real_elevators:elevator_cabin_activated", {
 		local dist = vector.distance(pos, self.end_pos)
 
 		if dist < 0.05 then
+			minetest.debug("2")
 			--minetest.debug("The cabin is about to stop...")
 			-- The cabin is arrived!
 			self.object:set_pos(self.end_pos)
@@ -574,6 +565,7 @@ minetest.register_entity("real_elevators:elevator_cabin_activated", {
 		local cur_vel = self.object:get_velocity()
 
 		if vector.length(cur_vel) == 0 then
+			minetest.debug("3")
 			--self.object:set_velocity(vector.new())
 			self.end_pos = nil
 			self.status = "stopped"

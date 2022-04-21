@@ -127,24 +127,24 @@ elevators.move_doors = function(net_name, action)
 	if not net then
 		return false
 	end
-	minetest.debug("move_doors (1)")
+	--minetest.debug("move_doors (1)")
 
 	local door_states = elevators.check_for_doors(net_name)
-	minetest.debug("door_states: " .. dump(door_states))
+	--minetest.debug("door_states: " .. dump(door_states))
 	if door_states.inner == "absent" then
 		net.cabin.state = "idle"
 		return false
 	elseif door_states.inner == "unloaded" then
 		return false
 	end
-	minetest.debug("move_doors (2)")
+	--minetest.debug("move_doors (2)")
 	if door_states.outer == "absent" then
 		net.cabin.state = "idle"
 		return false
 	elseif door_states.outer == "unloaded" then
 		return false
 	end
-	minetest.debug("move_doors (3)")
+	--minetest.debug("move_doors (3)")
 	local cabin_pos = net.floors[net.cabin.cur_elevator_position_index].position
 	local cabin = minetest.get_node(cabin_pos)
 	local cabin_dir = minetest.facedir_to_dir(cabin.param2)
@@ -254,8 +254,6 @@ end
 elevators.get_net_name_from_cabin_pos = function(pos)
 	for name, data in pairs(elevators.elevators_nets) do
 		local cabin_pos = elevators.get_cabin_pos_from_net_name(name)
-		minetest.debug("pos: " .. minetest.pos_to_string(pos))
-		minetest.debug("cabin_pos: " .. minetest.pos_to_string(cabin_pos))
 		if cabin_pos and vector.equals(pos, cabin_pos) then
 			return name
 		end
@@ -275,9 +273,9 @@ elevators.get_cabin_pos_from_net_name = function(net_name)
 		pos = net.floors[net.cabin.cur_elevator_position_index].position
 	elseif net.cabin.elevator_object then
 		if type(net.cabin.elevator_object) == "userdata" then
-			pos = net.cabin.elevator_object:get_pos()
+			pos = elevators.get_centre_y_pos_from_node_pos(net.cabin.elevator_object:get_pos())
 		elseif type(net.cabin.elevator_object) == "table" then
-			pos = net.cabin.elevator_object
+			pos = elevators.get_centre_y_pos_from_node_pos(net.cabin.elevator_object)
 		end
 	elseif net.cabin.position then
 		pos = net.cabin.position
@@ -293,8 +291,6 @@ elevators.get_trigger_pos = function(cabin_pos, dir)
 	local shift = vector.add(vector.add(right, up), fwd)
 
 	return vector.add(cabin_pos, shift)
-
-	--local trigger_pos = vector.add(pos, vector.add(vector.add(vector.multiply(dir, -1), vector.new(0, 1, 0)), vector.rotate_around_axis(dir, vector.new(0, 1, 0), math.pi/2)))
 end
 
 elevators.get_doors_pos_from_trigger_pos = function(trigger_pos)
@@ -441,12 +437,10 @@ elevators.deactivate = function(net_name, move_doors)
 
 	local trigger_pos = elevators.get_trigger_pos(pos, dir)
 	local trigger = minetest.get_node(trigger_pos)
-	minetest.debug("trigger: " .. trigger.name)
 	local is_trigger = minetest.get_item_group(trigger.name, "trigger")
 	if is_trigger == 1 then
 		minetest.set_node(trigger_pos, {name = "real_elevators:" .. elevators.trigger_states.off, param2 = trigger.param2})
 	end
-	minetest.debug("move_doors: " .. tostring(move_doors))
 	if move_doors then
 		elevators.move_doors(net_name, "open")
 	else
@@ -455,20 +449,6 @@ elevators.deactivate = function(net_name, move_doors)
 
 	return true
 end
-
-
---[[elevators.return_actual_node_pos = function(pos)
-	minetest.debug("pos.y: " .. pos.y)
-	local y_int, y_frac = math.modf(pos.y)
-	local y_frac_int = math.modf(y_frac * 10)
-	minetest.debug("y_frac_int: " .. y_frac_int)
-
-	if y_frac_int ~= 0 then
-		pos.y = math.modf(pos.y) + 0.5
-	end
-
-	return pos
-end]]
 
 elevators.get_centre_y_pos_from_node_pos = function(pos)
 	local p = {x=pos.x, y=pos.y, z=pos.z}
@@ -482,22 +462,6 @@ elevators.get_centre_y_pos_from_node_pos = function(pos)
 
 	return p
 end
-
-
---[[elevators.update_cabins_formspecs = function()
-	for name, data in pairs(elevators.elevators_nets) do
-		if data.cabin.state == "active" then
-			data.cabin.formspec = elevators.get_floor_list_formspec(name)
-		else
-			local meta = minetest.get_meta(data.cabin.position or data.floors[data.cabin.cur_elevator_position_index].position)
-			if #data.floors == 0 then
-				meta:set_string("formspec", elevators.get_add_floor_formspec())
-			else
-				meta:set_string("formspec", elevators.get_floor_list_formspec(name))
-			end
-		end
-	end
-end]]
 
 -- Checks for availability of surrounding shaft nodes (having 'shaft=1' group) and also checks for their proper orientation (should face towards to the cabin). Returns true if success, otherwise false.
 -- Params:
@@ -531,9 +495,9 @@ elevators.check_for_surrounding_shaft_nodes = function(pos, surrounded_node_dir,
 		local shaft_dir = minetest.facedir_to_dir(shaft.param2)
 		local shaft_rel_pos = vector.subtract(p, pos)
 		local right_dir = vector.cross(vector.new(0, 1, 0), vector.normalize(shaft_rel_pos))
-		local horiz_shaft_rel_pos = vector.rotate_around_axis(shaft_rel_pos, right_dir, -vector.dir_to_rotation(shaft_rel_pos).x)
+		local horiz_shaft_rel_pos = vector.round(vector.normalize(vector.rotate_around_axis(shaft_rel_pos, right_dir, -vector.dir_to_rotation(shaft_rel_pos).x)))
 
-		if not vector.equals(shaft_dir, vector.round(vector.normalize(horiz_shaft_rel_pos))) then
+		if not vector.equals(shaft_dir, horiz_shaft_rel_pos) then
 			if playername then
 				minetest.chat_send_player(playername, "The elevator cabin can not be outside of the shaft!")
 			end
@@ -541,13 +505,13 @@ elevators.check_for_surrounding_shaft_nodes = function(pos, surrounded_node_dir,
 		end
 	end
 
-	local up_node = minetest.get_node(vector.add(pos, vector.new(0, 1, 0)))
+	if playername then
+		local up_node = minetest.get_node(vector.add(pos, vector.new(0, 1, 0)))
 
-	if up_node.name ~= "air" and up_node.name ~= "real_elevators:light" then
-		if playername then
+		if up_node.name ~= "air" then
 			minetest.chat_send_player(playername, "There is no space for placing/moving the elevator cabin!")
+			return false
 		end
-		return false
 	end
 
 	return true
@@ -603,7 +567,7 @@ elevators.check_for_doors = function(net_name)
 	local states = {outer="absent", inner="absent"}
 
 	if type(net.cabin.inner_doors.left) == "userdata" and type(net.cabin.inner_doors.right) == "userdata" then
-		minetest.debug("check_for_doors(1)")
+		--minetest.debug("check_for_doors(1)")
 		local inner_left_door_self = net.cabin.inner_doors.left:get_luaentity()
 		local inner_right_door_self = net.cabin.inner_doors.right:get_luaentity()
 
@@ -729,7 +693,6 @@ end
 elevators.get_add_floor_formspec = function(number, description, position)
 	number = number or 0
 	description = description or ""
-	--position = ""
 	local form = {
 		"formspec_version[4]",
 		"size[10,5]",
@@ -748,19 +711,11 @@ elevators.get_add_floor_formspec = function(number, description, position)
 	else
 		table.insert(form, position .. "]")
 	end
-	--[[if position ~= "" then
-		table.insert(form, position .. "]")
-	elseif elevators.current_marked_pos then
-		table.insert(form, minetest.pos_to_string(elevators.current_marked_pos) .. "]")
-	else
-		table.insert(form, "]")
-	end]]
 
 	table.insert(form, "image_button[0.5,3;0.5,0.5;real_elevators_floor_plus.png;floor_add;]")
 	table.insert(form, "image_button[1,3;0.5,0.5;real_elevators_floor_minus.png;floor_reduce;]")
 	table.insert(form, "button[1.75,3.5;2.5,1;set_floor;Set]")
 	table.insert(form, "button[5.25,3.5;2.5,1;cancel_floor;Cancel]")
-	--form = form .. "image_button[0.5,3;0.5,0.5;real_elevators_floor_plus.png;floor_add;]image_button[1,3;0.5,0.5;real_elevators_floor_minus.png;floor_reduce;]button[3.5,3.5;2.5,1;set_floor;Set]"
 
 	return table.concat(form, "")
 end
@@ -824,7 +779,6 @@ end
 -- Global step. Passed in 'minetest.register_globalstep()'.
 elevators.global_step = function(dtime)
 	for name, data in pairs(elevators.elevators_nets) do
-		local pos = elevators.get_cabin_pos_from_net_name(name)
 		if data.cabin.state == "active" then
 			local self = type(data.cabin.elevator_object) == "userdata" and data.cabin.elevator_object:get_luaentity()
 
@@ -871,11 +825,17 @@ elevators.global_step = function(dtime)
 			end
 		end
 
-		local above_pos = elevators.get_centre_y_pos_from_node_pos({x=pos.x, y=pos.y+1, z=pos.z})
+		local pos = elevators.get_cabin_pos_from_net_name(name)
+		local above_pos = {x=pos.x, y=pos.y+1, z=pos.z}
 		--minetest.debug("data.cabin.last_light_pos: " .. (data.cabin.last_light_pos and minetest.pos_to_string(data.cabin.last_light_pos) or ""))
 		--minetest.debug("above_pos: " .. (above_pos and minetest.pos_to_string(above_pos) or ""))
 		--minetest.debug("data.is_light_on: " .. tostring(data.is_light_on))
-		if data.cabin.last_light_pos and (not vector.equals(data.cabin.last_light_pos, above_pos) or not data.is_light_on) then
+		local is_moving_or_light_on = data.cabin.last_light_pos and
+				(not vector.equals(data.cabin.last_light_pos, above_pos) or not data.is_light_on)
+		--minetest.debug("last_light_pos: " .. minetest.pos_to_string(data.cabin.last_light_pos or {}))
+		--minetest.debug("is_moving_or_light_on: " .. tostring(is_moving_or_light_on))
+		if is_moving_or_light_on and minetest.get_node(data.cabin.last_light_pos).name == "real_elevators:light" then
+			minetest.debug("node at light pos: " .. minetest.get_node(data.cabin.last_light_pos).name)
 			minetest.remove_node(data.cabin.last_light_pos)
 			data.cabin.last_light_pos = nil
 		end
@@ -884,6 +844,18 @@ elevators.global_step = function(dtime)
 			if minetest.get_node(above_pos).name == "air" then
 				minetest.set_node(above_pos, {name="real_elevators:light"})
 				data.cabin.last_light_pos = above_pos
+			end
+		end
+
+		if data.cabin.state == "active" then
+			-- Update rope
+			if minetest.get_node(above_pos).name == "real_elevators:elevator_rope" then
+				minetest.remove_node(above_pos)
+			end
+
+			local up_pos = {x=pos.x, y=pos.y+2, z=pos.z}
+			if minetest.get_node(up_pos).name ~= "real_elevators:elevator_winch" then
+				minetest.set_node(up_pos, {name="real_elevators:elevator_rope"})
 			end
 		end
 
@@ -1196,9 +1168,6 @@ elevators.remove_net = function(net_name)
 		net.outer_doors.right:remove()
 	end
 
-	--if net.cabin.last_light_pos then
-	--	minetest.remove_node(net.cabin.last_light_pos)
-	--end
 	for i, obj in ipairs(net.cabin.attached_objs) do
 		elevators.detach_obj_from_cabin(obj, i)
 	end
