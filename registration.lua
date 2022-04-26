@@ -537,6 +537,11 @@ minetest.register_entity("real_elevators:elevator_cabin_activated", {
 
 		local pos = self.object:get_pos()
 
+		if not self.is_printed then
+			minetest.debug("on_step() pos: " .. minetest.pos_to_string(pos))
+			self.is_printed = true
+		end
+
 		-- Check for shaft nodes availability
 		local is_shaft = elevators.check_for_surrounding_shaft_nodes(elevators.get_centre_y_pos_from_node_pos(pos), self.dir)
 
@@ -566,23 +571,12 @@ minetest.register_entity("real_elevators:elevator_cabin_activated", {
 
 		if vector.length(cur_vel) == 0 then
 			minetest.debug("3")
-			--self.object:set_velocity(vector.new())
 			self.end_pos = nil
 			self.status = "stopped"
 		end
 	end,
 	on_deactivate = function(self)
 		minetest.debug("on_deactivate()")
-		--minetest.debug("self.elevator_net_name: " .. (self.elevator_net_name ~= nil and self.elevator_net_name or "nil"))
-		--[[if not self.elevator_net_name then
-			return
-		end
-
-		if self.is_remove then
-			elevators.remove_net(self.elevator_net_name)
-		else
-			elevators.save_entities_positions_in_net(self.elevator_net_name)
-		end]]
 		if not self.elevator_net_name then
 			return
 		end

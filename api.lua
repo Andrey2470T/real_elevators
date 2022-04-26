@@ -281,7 +281,7 @@ elevators.get_cabin_pos_from_net_name = function(net_name)
 		pos = net.cabin.position
 	end
 
-	return pos
+	return {x=pos.x, y=pos.y, z=pos.z}
 end
 
 elevators.get_trigger_pos = function(cabin_pos, dir)
@@ -337,13 +337,10 @@ elevators.activate = function(net_name, target_pos)
 	local dir = minetest.facedir_to_dir(minetest.get_node(pos).param2)
 	local is_ldoor_inner, is_rdoor_inner = net.cabin.inner_doors.left:get_luaentity(), net.cabin.inner_doors.right:get_luaentity()
 	minetest.remove_node(pos)
-
 	local cabin_obj = elevators.set_cabin(pos, dir)
 
 	local self = cabin_obj:get_luaentity()
 	self.elevator_net_name = net_name
-
-	local pos = cabin_obj:get_pos()
 
 	if is_ldoor_inner then
 		local left_door = elevators.set_door(pos, {x=0, y=0, z=1}, -0.45, 0.25, true)
@@ -384,11 +381,12 @@ elevators.activate = function(net_name, target_pos)
 
 			if obj:is_player() then
 				local eye_offset = obj:get_eye_offset()
-				obj:set_eye_offset({x=eye_offset.x, y=eye_offset.y-0.5, z=eye_offset.z})
+				obj:set_eye_offset({x=eye_offset.x, y=eye_offset.y-0.5*10, z=eye_offset.z})
 			end
 			net.cabin.attached_objs[#net.cabin.attached_objs+1] = obj
 		end
 	end
+
 	cabin_obj:set_velocity(vector.direction(pos, self.end_pos) * elevators.settings.CABIN_VELOCITY)
 	elevators.elevators_nets[net_name] = net
 	return true
@@ -452,13 +450,7 @@ end
 
 elevators.get_centre_y_pos_from_node_pos = function(pos)
 	local p = {x=pos.x, y=pos.y, z=pos.z}
-	local y_int, y_frac = math.modf(p.y)
-	p.y = y_int
-	--[[local y_frac_int = math.modf(y_frac * 10)
-
-	if y_frac_int ~= 0 then
-		p.y = math.modf(p.y) + 0.5
-	end]]
+	p.y = math.modf(p.y)
 
 	return p
 end
@@ -572,7 +564,7 @@ elevators.check_for_doors = function(net_name)
 		local inner_right_door_self = net.cabin.inner_doors.right:get_luaentity()
 
 		if inner_left_door_self and inner_right_door_self then
-			minetest.debug("check_for_doors(2)")
+			--minetest.debug("check_for_doors(2)")
 			states.inner = "success"
 		end
 	elseif type(net.cabin.inner_doors.left) == "table" or type(net.cabin.inner_doors.right) == "table" then
@@ -835,7 +827,6 @@ elevators.global_step = function(dtime)
 		--minetest.debug("last_light_pos: " .. minetest.pos_to_string(data.cabin.last_light_pos or {}))
 		--minetest.debug("is_moving_or_light_on: " .. tostring(is_moving_or_light_on))
 		if is_moving_or_light_on and minetest.get_node(data.cabin.last_light_pos).name == "real_elevators:light" then
-			minetest.debug("node at light pos: " .. minetest.get_node(data.cabin.last_light_pos).name)
 			minetest.remove_node(data.cabin.last_light_pos)
 			data.cabin.last_light_pos = nil
 		end
@@ -1019,7 +1010,6 @@ elevators.on_receive_fields = function(player, formname, fields)
 					table.insert(new_floors, floor)
 				end
 			end
-
 			net.floors = new_floors
 			elevators.cab_fs_contexts[pl_name][net_name].sel_floors_ind = {}
 		end
@@ -1079,16 +1069,15 @@ end
 end]]
 
 elevators.detach_obj_from_cabin = function(obj, attached_objs_i)
-	local self = obj:get_luaentity()
-
-	if not self then
-		return false
-	end
 	local net_name
 	local is_player = obj:is_player()
 	if is_player then
+		minetest.debug("you have detached!")
 		net_name = obj:get_meta():get_string("attached_cabin_elevator_name")
 		obj:get_meta():set_string("attached_cabin_elevator_name", "")
+
+		local eye_offset = obj:get_eye_offset()
+		obj:set_eye_offset({x=eye_offset.x, y=eye_offset.y+0.5*10, z=eye_offset.z})
 	else
 		net_name = self.attached_cabin_elevator_name
 		self.attached_cabin_elevator_name = nil
@@ -1116,6 +1105,8 @@ elevators.detach_obj_from_cabin = function(obj, attached_objs_i)
 			end
 		end
 	end
+
+	minetest.debug("detach_obj_from_cabin(): net.cabin.attached_objs: " .. dump(net.cabin.attached_objs))
 
 	return true
 end
