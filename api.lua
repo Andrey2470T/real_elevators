@@ -312,7 +312,7 @@ end
 -- *net_name* is name of net.
 -- *target_pos* is target position of arrival.
 elevators.activate = function(net_name, target_pos)
-	local net = table.copy(elevators.elevators_nets[net_name])
+	local net = elevators.elevators_nets[net_name]
 
 	if not net then
 		return false
@@ -373,7 +373,6 @@ elevators.activate = function(net_name, target_pos)
 			local self = obj:get_luaentity()
 			if self.name ~= "real_elevators:elevator_cabin_activated" and self.name ~= "real_elevators:elevator_door_moving" then
 				allow_attach = true
-				self.attached_cabin_elevator_name = net_name
 			end
 		end
 		if allow_attach then
@@ -396,7 +395,7 @@ end
 -- Params:
 -- *net_name* is name of net.
 elevators.deactivate = function(net_name, move_doors)
-	local net = table.copy(elevators.elevators_nets[net_name])
+	local net = elevators.elevators_nets[net_name]
 
 	if not net then
 		return false
@@ -409,11 +408,13 @@ elevators.deactivate = function(net_name, move_doors)
 	local pos = elevators.get_centre_y_pos_from_node_pos(net.cabin.elevator_object:get_pos())
 	local dir = net.cabin.elevator_object:get_luaentity().dir
 	local net_name = net.cabin.elevator_object:get_luaentity().elevator_net_name
+	local _, floor_i = elevators.get_net_name_and_floor_index_from_floor_pos(pos)
 
 	local is_ldoor_inner, is_rdoor_inner = net.cabin.inner_doors.left:get_luaentity(), net.cabin.inner_doors.right:get_luaentity()
 	net.cabin.elevator_object:remove()
-	elevators.elevators_nets[net_name] = net
-	local _, floor_i = elevators.get_net_name_and_floor_index_from_floor_pos(pos)
+	minetest.set_node(pos, {name = "real_elevators:elevator_cabin", param2 = minetest.dir_to_facedir(dir)})
+	--elevators.elevators_nets[net_name] = net
+	--local _, floor_i = elevators.get_net_name_and_floor_index_from_floor_pos(pos)
 
 	if floor_i then
 		net.cabin.cur_elevator_position_index = floor_i
@@ -421,7 +422,8 @@ elevators.deactivate = function(net_name, move_doors)
 		net.cabin.position = pos
 	end
 	net.cabin.elevator_object = nil
-	minetest.set_node(pos, {name = "real_elevators:elevator_cabin", param2 = minetest.dir_to_facedir(dir)})
+	--net.cabin.attached_objs = {}
+	--minetest.set_node(pos, {name = "real_elevators:elevator_cabin", param2 = minetest.dir_to_facedir(dir)})
 
 	if is_ldoor_inner then
 		local left_door = elevators.set_door(pos, dir, -0.45, 0.25, true)
@@ -433,6 +435,7 @@ elevators.deactivate = function(net_name, move_doors)
 	end
 	table.remove(net.cabin.queue, 1)
 
+	elevators.elevators_nets[net_name] = net
 	local trigger_pos = elevators.get_trigger_pos(pos, dir)
 	local trigger = minetest.get_node(trigger_pos)
 	local is_trigger = minetest.get_item_group(trigger.name, "trigger")
@@ -771,7 +774,37 @@ end
 -- Global step. Passed in 'minetest.register_globalstep()'.
 elevators.global_step = function(dtime)
 	for name, data in pairs(elevators.elevators_nets) do
+		local pos = elevators.get_cabin_pos_from_net_name(name)
+
+
+		-- Update cabin light position if "is_light_on" == true
+		local above_pos = {x=pos.x, y=pos.y+1, z=pos.z}
+		local is_moving_or_light_on = data.cabin.last_light_pos and
+				(not vector.equals(data.cabin.last_light_pos, above_pos) or not data.is_light_on)
+
+		if is_moving_or_light_on and minetest.get_node(data.cabin.last_light_pos).name == "real_elevators:light" then
+			minetest.remove_node(data.cabin.last_light_pos)
+			data.cabin.last_light_pos = nil
+		end
+
+		if data.is_light_on then
+			if minetest.get_node(above_pos).name == "air" then
+				minetest.set_node(above_pos, {name="real_elevators:light"})
+				data.cabin.last_light_pos = above_pos
+			end
+		end
+
 		if data.cabin.state == "active" then
+
+			-- Update rope
+			if minetest.get_node(above_pos).name == "real_elevators:elevator_rope" then
+				minetest.remove_node(above_pos)
+			end
+
+			local up_pos = {x=pos.x, y=pos.y+2, z=pos.z}
+			if minetest.get_node(up_pos).name ~= "real_elevators:elevator_winch" then
+				minetest.set_node(up_pos, {name="real_elevators:elevator_rope"})
+			end
 			local self = type(data.cabin.elevator_object) == "userdata" and data.cabin.elevator_object:get_luaentity()
 
 			if self and not self.end_pos then
@@ -817,7 +850,37 @@ elevators.global_step = function(dtime)
 			end
 		end
 
-		local pos = elevators.get_cabin_pos_from_net_name(name)
+		-- Check for the integrity of the rope
+		local is_rope, state = elevators.check_for_rope(pos)
+
+		if not is_rope then
+			if state == 1 then
+				--minetest.debug("Cabin is falling down!")
+				local dir
+				-- The rope is intercepted, it can not move anymore, so remove its data from 'elevators.elevators_nets' and makes to fall down.
+				if type(data.cabin.elevator_object) == "userdata" then
+					--minetest.debug("data.cabin.elevator_object: " .. dump(data.cabin.elevator_object))
+					--minetest.debug("data.cabin.elevator_object:get_luaentity(): " .. dump(data.cabin.elevator_object:get_luaentity()))
+					dir = data.cabin.elevator_object:get_luaentity().dir
+					data.cabin.elevator_object:remove()
+				elseif not data.cabin.elevator_object then
+					dir = minetest.facedir_to_dir(minetest.get_node(pos).param2)
+					minetest.remove_node(pos)
+				end
+				local falling_cabin = elevators.set_cabin(pos, dir)
+				falling_cabin:set_acceleration({x=0, y=-elevators.settings.GRAVITY, z=0})
+				falling_cabin:get_luaentity().status = "fallen"
+			elseif state == 2 then
+				--minetest.debug("Rope is too long!")
+				if type(data.cabin.elevator_object) == "userdata" then
+					local self = data.cabin.elevator_object:get_luaentity()
+					self.end_pos = nil
+					self.status = "stopped"
+					elevators.deactivate(name, false)
+				end
+			end
+		end
+		--[[local pos = elevators.get_cabin_pos_from_net_name(name)
 		local above_pos = {x=pos.x, y=pos.y+1, z=pos.z}
 		--minetest.debug("data.cabin.last_light_pos: " .. (data.cabin.last_light_pos and minetest.pos_to_string(data.cabin.last_light_pos) or ""))
 		--minetest.debug("above_pos: " .. (above_pos and minetest.pos_to_string(above_pos) or ""))
@@ -878,7 +941,7 @@ elevators.global_step = function(dtime)
 					elevators.deactivate(name, false)
 				end
 			end
-		end
+		end]]
 	end
 end
 
@@ -889,7 +952,7 @@ elevators.on_shutdown = function()
 		-- Detach all lua-entities from each elevator cabin
 		for i, obj in ipairs(net.cabin.attached_objs) do
 			if not obj:is_player() then
-				elevators.detach_obj_from_cabin(obj, i)
+				elevators.detach_obj_from_cabin(obj, name, i)
 			end
 		end
 		net.cabin.elevator_object = type(net.cabin.elevator_object) == "userdata" and net.cabin.elevator_object:get_pos() or net.cabin.elevator_object
@@ -1055,7 +1118,9 @@ elevators.on_receive_fields = function(player, formname, fields)
 end
 
 elevators.on_leaveplayer = function(player)
-	elevators.detach_obj_from_cabin(player)
+	local meta = player:get_meta()
+	elevators.detach_obj_from_cabin(player, meta:get_string("attached_cabin_elevator_name"))
+	meta:set_string("attached_cabin_elevator_name", "")
 end
 --[[elevators.on_join = function(player)
 	for name, data in pairs(elevators.elevators_nets) do
@@ -1068,21 +1133,7 @@ end
 	end
 end]]
 
-elevators.detach_obj_from_cabin = function(obj, attached_objs_i)
-	local net_name
-	local is_player = obj:is_player()
-	if is_player then
-		minetest.debug("you have detached!")
-		net_name = obj:get_meta():get_string("attached_cabin_elevator_name")
-		obj:get_meta():set_string("attached_cabin_elevator_name", "")
-
-		local eye_offset = obj:get_eye_offset()
-		obj:set_eye_offset({x=eye_offset.x, y=eye_offset.y+0.5*10, z=eye_offset.z})
-	else
-		net_name = self.attached_cabin_elevator_name
-		self.attached_cabin_elevator_name = nil
-	end
-
+elevators.detach_obj_from_cabin = function(obj, net_name, attached_objs_i)
 	if not net_name or net_name == "" then
 		return false
 	end
@@ -1091,6 +1142,11 @@ elevators.detach_obj_from_cabin = function(obj, attached_objs_i)
 
 	if not net then
 		return false
+	end
+
+	if obj:is_player() then
+		local eye_offset = obj:get_eye_offset()
+		obj:set_eye_offset({x=eye_offset.x, y=eye_offset.y+0.5*10, z=eye_offset.z})
 	end
 
 	obj:set_detach()
@@ -1159,8 +1215,9 @@ elevators.remove_net = function(net_name)
 		net.outer_doors.right:remove()
 	end
 
+	minetest.debug("attached_objs: " .. dump(net.cabin.attached_objs))
 	for i, obj in ipairs(net.cabin.attached_objs) do
-		elevators.detach_obj_from_cabin(obj, i)
+		elevators.detach_obj_from_cabin(obj, net_name, i)
 	end
 
 	for pl_name, context in pairs(elevators.cab_fs_contexts) do

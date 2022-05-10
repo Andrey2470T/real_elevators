@@ -537,11 +537,6 @@ minetest.register_entity("real_elevators:elevator_cabin_activated", {
 
 		local pos = self.object:get_pos()
 
-		if not self.is_printed then
-			minetest.debug("on_step() pos: " .. minetest.pos_to_string(pos))
-			self.is_printed = true
-		end
-
 		-- Check for shaft nodes availability
 		local is_shaft = elevators.check_for_surrounding_shaft_nodes(elevators.get_centre_y_pos_from_node_pos(pos), self.dir)
 
